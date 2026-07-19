@@ -100,16 +100,19 @@ package, emitter, or gate to point at.
   the sweep executed** (all commits/all refs, snapshot, 0.1.0–0.1.16 tarballs;
   zero real secrets) — D56, the repeatable launch-audit tooling. The tag-triggered npm trusted-publishing `release.yml` as the sole
   publish path — OIDC, provenance, tokenless, five gates + pack-allowlist re-run
-  against the tag (D57, inert until console bindings). OSS hygiene shipped:
+  against the tag (D57 — now live: the console bindings exist and `v0.1.18`
+  shipped through it). OSS hygiene shipped:
   `CONTRIBUTING.md` (prior-art-as-template + conformance-as-reviewer + DCO), a
   live DCO CI check (`.github/workflows/dco.yml`), `CODEOWNERS`,
   `CODE_OF_CONDUCT.md`, issue/PR templates, `package.json` metadata,
   and the README repositioned around the drift-checked/CI-gated moat with a CI
-  badge. Launch prep landed the in-repo half of the org/scope migration
-  (D58: `@pragmatic-labs/praxis` 0.1.17, Node 22 floor, hardened signed-off
-  snapshot root, corrected sweep, recorded first-publish bootstrap). Still
-  open: creating/pushing the sanitized public repo, the console-side release
-  bindings, and the console half of the migration (To-do item 0).
+  badge. Launch prep landed the org/scope migration (D58:
+  `@pragmatic-labs/praxis` 0.1.17, Node 22 floor, hardened signed-off
+  snapshot root, corrected sweep, recorded first-publish bootstrap) — and
+  the launch itself is done: this public repo is canonical and fully
+  protected, and `v0.1.18` shipped through the tag-triggered
+  trusted-publishing workflow with provenance (To-do item 0 records the
+  remaining tail).
 
 ## To-do / pending
 
@@ -136,24 +139,29 @@ usage rather than scheduled.
    package renamed `@pragmatic-labs/praxis` at 0.1.17, every living reference
    moved, Node floor at 22, the snapshot builder emitting a signed-off `main`
    root under the pinned public identity, the boundary sweep corrected, and
-   the one-time npm first-publish bootstrap recorded. **Launch repo created
-   and seeded (2026-07-19):** the private `Pragmatic-Labs-AI/praxis`
-   repository holds exactly the verified snapshot root commit (signed-off,
-   pinned identity; sweep and all five gates green on the identical tree),
-   with Actions default token read-only, the `release` environment carrying
-   the `v*` tag deployment policy, and merge-commit-only history. GitHub
+   the one-time npm first-publish bootstrap recorded. **Launched
+   (2026-07-19):** this repository — `Pragmatic-Labs-AI/praxis`, grown from
+   the verified snapshot root commit (signed-off, pinned identity; sweep and
+   all five gates green on the identical tree) — is public and canonical;
+   the pre-launch private repository is a frozen archive whose history never
+   merges here. The full protection pass is applied: `protect-main` (PRs +
+   required `build` check, no force-push, merge-commit-only) and
+   `protect-release-tags` (`v*` immutable) rulesets, Actions default token
+   read-only, the `release` environment with a required reviewer and `v*`
+   tag deployment policy, secret scanning + push protection, CodeQL default
+   setup, and private vulnerability reporting. (Operational note: GitHub
    gates rulesets, branch protection, and required environment reviewers
-   behind a paid plan while a repo is private, so those protections are
-   applied immediately after the visibility flip rather than before it.
-   **Still open before/at the public flip:** the org-scope bootstrap publish,
-   the remaining console-side release bindings that make the release workflow
-   live (npm trusted-publisher binding, the `release` required reviewer, npm
-   2FA/token-disable), private-vulnerability-reporting + secret-scanning/
-   CodeQL enablement (free tier only on public repos), and the
-   least-privilege contributor/core/release roles (recorded
-   single-maintainer narrowing until maintainer #2) with protected
-   CODEOWNER-reviewed core, applied as the immediate post-flip pass. Then
-   deprecating the old scope in the new one's favor, and a launch write-up.
+   behind a paid plan while a repo is private, so the protection pass ran
+   immediately after the visibility flip.) The npm side is proven
+   end-to-end: `0.1.17` was the recorded one-time bootstrap publish (token
+   since revoked), the trusted-publisher binding is live, and **`v0.1.18`
+   shipped through `release.yml` as the sole publish path** — tag push,
+   environment approval, five gates re-run against the tag, pack allowlist,
+   tokenless OIDC publish with SLSA provenance on the registry. **Still
+   open:** deprecating the old `@aacombarro89/praxis` scope in this one's
+   favor, moving remaining consumers to the new scope, the recorded
+   single-maintainer narrowing until maintainer #2 (then required reviews
+   and CODEOWNER-reviewed core switch on), and a launch write-up.
 
 1. **Layer 2 stack recipes — three stacks shipped, deepening ongoing.** `node`,
    `python-backend`, and `react` each ship a craft recipe + a test-layer recipe
