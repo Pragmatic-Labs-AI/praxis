@@ -1,0 +1,13 @@
+# Package manifest (docs/wiki/packages-and-emit.md, D25). Ships a standing reminder (rules.md)
+# plus the /praxis-wiki command (commands/wiki.md): maintain a durable, in-repo,
+# linked-markdown knowledge wiki the agent reads at the start of work and updates
+# as the project changes — the agent's cross-session memory of the project,
+# delivered as curated declarative files (D8's in-scope side), never a runtime
+# backend (docs/wiki/gotchas.md/D12). Layer 1 / stack- & tool-agnostic; adapts to whatever the
+# target project has and hardcodes none of Praxis's own specifics.
+name: wiki-memory
+layer: layer1
+provides: [rules, commands]
+onboarding:
+  command: praxis-wiki
+  summary: "Seed the project knowledge wiki — creates docs/wiki/ (index + orientation) so future sessions read instead of re-deriving."

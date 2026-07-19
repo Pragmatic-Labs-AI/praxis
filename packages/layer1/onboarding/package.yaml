@@ -1,0 +1,8 @@
+# Package manifest (docs/wiki/packages-and-emit.md, D20). This package provides a bootstrap
+# rule (rules.md) that self-terminates after first-run onboarding, and the /praxis-onboard
+# command (commands/onboard.md) that guides the agent through authoring project facts
+# (build/run/test, layout, conventions) — never authoring them directly (D12/D13).
+# Part of the D14 onboarding mechanism (docs/wiki/onboarding.md).
+name: onboarding
+layer: layer1
+provides: [rules, commands]

@@ -1,0 +1,100 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(./**)",
+      "Edit(./**)",
+      "Write(./**)",
+      "Bash(npm run test:*)",
+      "Bash(npm run lint:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run build:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git commit:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(npm install:*)",
+      "Bash(npm i:*)",
+      "Bash(npm ci:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/*.pem)",
+      "Read(./**/credentials*)",
+      "Bash(npm install -g:*)",
+      "Bash(npm i -g:*)",
+      "Bash(pnpm add -g:*)"
+    ]
+  },
+  "_praxis": {
+    "managed": {
+      "permissions": {
+        "allow": [
+          "Read(./**)",
+          "Edit(./**)",
+          "Write(./**)",
+          "Bash(npm run test:*)",
+          "Bash(npm run lint:*)",
+          "Bash(npm run typecheck:*)",
+          "Bash(npm run build:*)",
+          "Bash(git status:*)",
+          "Bash(git diff:*)",
+          "Bash(git log:*)",
+          "Bash(git commit:*)"
+        ],
+        "ask": [
+          "Bash(git push:*)",
+          "Bash(npm install:*)",
+          "Bash(npm i:*)",
+          "Bash(npm ci:*)"
+        ],
+        "deny": [
+          "Bash(rm -rf:*)",
+          "Bash(git push --force:*)",
+          "Bash(git push -f:*)",
+          "Read(./.env)",
+          "Read(./.env.*)",
+          "Read(./**/*.pem)",
+          "Read(./**/credentials*)",
+          "Bash(npm install -g:*)",
+          "Bash(npm i -g:*)",
+          "Bash(pnpm add -g:*)"
+        ]
+      },
+      "marketplaces": [
+        "ponytail",
+        "365-skills"
+      ],
+      "plugins": [
+        "ponytail@ponytail",
+        "drawio@365-skills"
+      ]
+    }
+  },
+  "extraKnownMarketplaces": {
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail",
+        "ref": "adad50d9b393926b2dd5ed7225dcb1848b9df408"
+      }
+    },
+    "365-skills": {
+      "source": {
+        "source": "github",
+        "repo": "Agents365-ai/365-skills",
+        "ref": "3fa2281be5cef1f757b94cc16a0a5fe83f425f16"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "ponytail@ponytail": true,
+    "drawio@365-skills": true
+  }
+}

@@ -1,0 +1,131 @@
+name: Release
+#
+# The ONLY publish path for this package (D57, the release boundary). Tag-
+# triggered, gated behind a protected GitHub environment, and publishes via
+# npm trusted publishing (OIDC) with automatic provenance — no npm token
+# lives anywhere in this repo or its secrets.
+#
+# Contract enforced below, in order:
+#   1. Checkout the exact tagged commit.
+#   2. Tag/version guard: the pushed tag must equal `v` + package.json
+#      version, or the run fails before anything else happens.
+#   3. All five gates (typecheck, build, test, conformance, selfcheck) —
+#      the same bar CI enforces on every PR, re-run here against the tagged
+#      commit.
+#   4. Tarball allowlist check: `npm pack --dry-run --json` is inspected and
+#      every file must live under dist/ or packages/, or be one of the
+#      named root files. Anything else fails the run.
+#   5. `npm publish` with no token — trusted publishing exchanges this job's
+#      OIDC identity for a short-lived publish credential, and npm attaches
+#      a provenance attestation automatically.
+#
+# FIRST-PUBLISH BOOTSTRAP (D58): npm can only bind a trusted publisher to a
+# package that already exists on the registry, so the org scope's very first
+# publish cannot go through this workflow. That one publish is a recorded
+# manual owner step — `npm publish` with a short-lived granular token and
+# 2FA — followed immediately by binding the trusted publisher below and
+# revoking the token. From the second release on, this workflow is the ONLY
+# publish path. When creating the binding, note npm requires selecting the
+# allowed action and that package.json's `repository.url` exactly match the
+# GitHub repo.
+#
+# This workflow is inert until the console-side setup below exists:
+#   1. npmjs.com -> package settings -> Trusted Publisher -> bind this repo
+#      + this workflow file (`.github/workflows/release.yml`) + the
+#      `release` environment as a trusted GitHub Actions publisher.
+#   2. GitHub repo -> Settings -> Environments -> create `release`, add at
+#      least one required reviewer, and (recommended) restrict it to the
+#      `v*` tag pattern under deployment branches/tags.
+#   3. npmjs.com -> account/package settings -> require 2FA for publishing
+#      and disable classic tokens for this package where possible.
+# Until all three exist, a tag push cannot publish: the `release`
+# environment has no reviewers/protection configured yet, and there is no
+# npm token fallback for the job to use instead.
+#
+# npm version requirement verified against
+# https://docs.npmjs.com/trusted-publishers/ at authoring time: "Trusted
+# publishing requires npm CLI version 11.5.1 or later and Node version
+# 22.14.0 or higher." Pinned exactly below — no `@latest`.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    # Job-level permissions replace workflow-level permissions for this job
+    # rather than adding to them, so contents: read is restated here
+    # alongside the id-token: write that OIDC trusted publishing requires.
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing requires npm CLI >= 11.5.1 (verified above).
+      - run: npm install -g npm@11.5.1
+
+      - run: npm ci
+
+      - name: Verify tag matches package.json version
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          PKG_VERSION="v$(node -p "require('./package.json').version")"
+          if [ "$TAG" != "$PKG_VERSION" ]; then
+            echo "::error::tag $TAG does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+          echo "tag $TAG matches package.json version $PKG_VERSION"
+
+      # Lets conformance/codex.conformance.test.ts validate emitted Codex
+      # rules against the real tool instead of skipping (Tool-neutral rail).
+      - run: npm install -g @openai/codex@0.144.6
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - run: npm run conformance
+      # Self-hosting: Praxis's own emitted files must match its methodology source.
+      - run: npm run selfcheck
+
+      - name: Verify npm pack file allowlist
+        run: |
+          node -e '
+            const { execSync } = require("child_process");
+            const out = execSync("npm pack --dry-run --json").toString();
+            const [pkg] = JSON.parse(out);
+            const allowedDirs = ["dist/", "packages/"];
+            const allowedFiles = new Set([
+              "NOTICE",
+              "npm-shrinkwrap.json",
+              "package.json",
+              "README.md",
+              "LICENSE",
+            ]);
+            const paths = pkg.files.map((f) => f.path);
+            const unexpected = paths.filter(
+              (p) => !allowedDirs.some((d) => p.startsWith(d)) && !allowedFiles.has(p)
+            );
+            if (unexpected.length > 0) {
+              console.error("Unexpected files in npm pack tarball:");
+              for (const p of unexpected) console.error(`  ${p}`);
+              process.exit(1);
+            }
+            console.log(`npm pack allowlist verified: ${paths.length} files, all within dist/, packages/, or the named root files.`);
+          '
+
+      # Trusted publishing authenticates via this job's OIDC token — no
+      # NODE_AUTH_TOKEN / npm token anywhere. Provenance is generated and
+      # attached automatically under trusted publishing (per the docs
+      # verified above); no --provenance flag is required.
+      - run: npm publish

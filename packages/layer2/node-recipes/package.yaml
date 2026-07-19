@@ -1,0 +1,10 @@
+# Package manifest (docs/wiki/packages-and-emit.md). Layer 2: stack-specific,
+# domain-agnostic authoring recipes for TypeScript/Node codebases — "how to add a
+# module/feature well here" — that point at the target repo's own in-repo prior art
+# for the concrete shape rather than shipping code. Craft, not domain: portable
+# across any Node project; hardcodes none of a project's specifics. Applies only
+# when praxis.yaml declares the `node` stack.
+name: node-recipes
+layer: layer2
+stack: node
+provides: [rules]

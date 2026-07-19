@@ -1,0 +1,13 @@
+# Package manifest (docs/wiki/packages-and-emit.md, D22/D24/D37). Ships a standing reminder
+# (rules.md) plus the /praxis-handoff command (commands/handoff.md): capture full
+# session context into a chronologically-named, self-contained handoff doc that
+# carries work across both boundaries it can cross — a session boundary (a fresh
+# agent session resumes without re-running discovery) and an agent boundary (a
+# subagent executes a scoped workstream the orchestrator delegated, D37). One
+# context-cache artifact serves both readers.
+# Layer 1 / stack- & tool-agnostic — the command adapts to whatever build/test,
+# design doc, and instruction layer the target project has; it hardcodes none of
+# Praxis's own specifics.
+name: session-handoff
+layer: layer1
+provides: [rules, commands]

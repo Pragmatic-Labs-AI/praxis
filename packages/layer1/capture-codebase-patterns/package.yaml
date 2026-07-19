@@ -1,0 +1,14 @@
+# Package manifest (docs/wiki/packages-and-emit.md, D49). Commands-only: no rules.md,
+# so this package is zero-cost between runs (nothing always-loaded). Ships the
+# /praxis-capture-codebase-patterns command (commands/capture-codebase-patterns.md):
+# the agent interviews the developer, extracts this team's OWN coding patterns from an
+# exemplar module with cited evidence, iterates on candidates, and generates a
+# project-local `codebase-patterns` package (layer: local, D49) that then rides normal
+# `praxis sync`. Praxis never calls an LLM or authors project facts directly (D12/D13) —
+# the agent authors the generated package's content, guided by this command.
+name: capture-codebase-patterns
+layer: layer1
+provides: [commands]
+onboarding:
+  command: praxis-capture-codebase-patterns
+  summary: "Capture this team's own coding patterns from an exemplar module into a project-local Praxis package that rides praxis sync."

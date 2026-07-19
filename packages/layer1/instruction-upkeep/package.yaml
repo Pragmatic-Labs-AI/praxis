@@ -1,0 +1,8 @@
+# Package manifest (docs/wiki/packages-and-emit.md, D20). This package provides a standing
+# reminder (rules.md) plus the /praxis-instructions command (commands/instructions.md) that
+# keeps the authored instruction layer (CLAUDE.md, .claude/rules) current —
+# never the tool's native auto-memory, never a 3rd-party memory system
+# (docs/wiki/onboarding.md).
+name: instruction-upkeep
+layer: layer1
+provides: [rules, commands]

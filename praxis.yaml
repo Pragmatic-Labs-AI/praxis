@@ -1,0 +1,11 @@
+# Praxis's own methodology manifest — Praxis installs Praxis (docs/wiki/self-hosting.md).
+# Edit this, then run `praxis sync`. `praxis check` guards drift in CI.
+version: 1
+methodology: "0.1.0"
+# Praxis is a TS/Node project, so it dogfoods the `node` Layer 2 stack: the
+# node-recipes / node-testing craft recipes apply to its own *.ts sources.
+stacks: [node]
+targets: [claude-code, codex, agents-md]
+# ponytail/drawio: POC dogfood of the declarative plugin-marketplace artifact —
+# they exercise target-gated marketplace emission; only verified packages reach Codex.
+packages: [karpathy-claude, onboarding, safe-permissions, instruction-upkeep, session-handoff, wiki-memory, upkeep, capture-codebase-patterns, node-recipes, node-testing, ponytail, drawio]

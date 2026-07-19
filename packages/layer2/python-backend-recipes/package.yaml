@@ -1,0 +1,10 @@
+# Package manifest (docs/wiki/packages-and-emit.md). Layer 2: stack-specific,
+# domain-agnostic authoring recipes for Python backend codebases — "how to add a
+# module/feature well here" — that point at the target repo's own in-repo prior art
+# for the concrete shape rather than shipping code. Craft, not domain: portable
+# across any Python project; hardcodes none of a project's specifics. Applies only
+# when praxis.yaml declares the `python-backend` stack.
+name: python-backend-recipes
+layer: layer2
+stack: python-backend
+provides: [rules]

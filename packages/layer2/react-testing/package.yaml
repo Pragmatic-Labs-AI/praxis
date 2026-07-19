@@ -1,0 +1,10 @@
+# Package manifest (docs/wiki/packages-and-emit.md). Layer 2: a stack-specific
+# decision recipe for React codebases — how to choose the right test layer
+# (unit-render vs integration vs e2e), use React Testing Library idioms, and
+# test behaviour/roles/user-visible output rather than implementation — pointing
+# at the target repo's own test suites for the concrete shape. Applies only when
+# praxis.yaml declares the `react` stack.
+name: react-testing
+layer: layer2
+stack: react
+provides: [rules]

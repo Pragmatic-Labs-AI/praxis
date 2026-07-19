@@ -1,0 +1,10 @@
+# Package manifest (docs/wiki/packages-and-emit.md). Layer 2: stack-specific
+# authoring recipes for React codebases — React-specific component craft that
+# points at the target repo's own in-repo prior art for the concrete shape rather
+# than shipping code. Covers components, props, composition, accessibility, and
+# hooks conventions; not general TypeScript craft (node-recipes covers that for
+# react+node repos). Applies only when praxis.yaml declares the `react` stack.
+name: react-components
+layer: layer2
+stack: react
+provides: [rules]

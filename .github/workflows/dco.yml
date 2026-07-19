@@ -1,0 +1,41 @@
+name: DCO
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: Check Signed-off-by on every commit
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for sha in $(git log --no-merges --format=%H "$BASE_SHA..$HEAD_SHA"); do
+            # Bot-authored commits (dependabot etc.) are exempt: DCO certifies
+            # human origin, and bots never sign off.
+            case "$(git log -1 --format=%an "$sha")" in
+              *"[bot]") continue ;;
+            esac
+            if ! git log -1 --format=%B "$sha" | grep -qE '^Signed-off-by: .+ <.+>$'; then
+              echo "::error::Commit $sha ($(git log -1 --format=%s "$sha")) is missing a 'Signed-off-by' trailer (DCO)."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo ""
+            echo "Every commit in this pull request must be signed off under the Developer Certificate of Origin (see CONTRIBUTING.md)."
+            echo "Fix it: 'git commit --amend -s' for the last commit, or 'git rebase --signoff <base-branch>' to sign off every commit on this branch, then force-push."
+            exit 1
+          fi
+          echo "All commits in this pull request carry a Signed-off-by trailer."

@@ -1,0 +1,14 @@
+# Package manifest (docs/wiki/packages-and-emit.md, D53). Ships a standing
+# reminder (rules.md) plus the /praxis-workspace-upkeep command
+# (commands/workspace-upkeep.md): hub-sovereign upkeep for a Praxis workspace —
+# a meta-repo with N independent git repos cloned beneath it, declared in this
+# repo's own `workspace:` praxis.yaml section. Gated on the `workspace`
+# pseudo-stack, which is derived from that section (never user-declarable in
+# `stacks:`, src/manifest.ts/src/packages.ts), so it never lands in an ordinary
+# repo. Requires wiki-memory/upkeep/session-handoff (D21): the command
+# delegates to all three rather than restating their steps.
+name: workspace
+layer: layer2
+stack: workspace
+provides: [rules, commands]
+requires: [wiki-memory, upkeep, session-handoff]

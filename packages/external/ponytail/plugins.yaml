@@ -1,0 +1,18 @@
+# Declarative Claude Code plugin-marketplace reference (src/plugins.ts).
+# Praxis never executes anything here — this is committable config that Claude
+# Code itself reads on folder-trust to offer installing/enabling the plugin.
+# Verified against github.com/DietrichGebert/ponytail: ref is the full commit
+# SHA that tag v4.7.0 points to (git ls-remote, 2026-07-18) — a tag is a
+# useful label, not an integrity boundary; the SHA is what's actually pinned.
+targets: [claude-code, codex]
+marketplace:
+  name: ponytail
+  source:
+    source: github
+    repo: DietrichGebert/ponytail
+    ref: adad50d9b393926b2dd5ed7225dcb1848b9df408 # v4.7.0
+enable:
+  - ponytail@ponytail
+codex:
+  name: ponytail
+  category: Developer Tools

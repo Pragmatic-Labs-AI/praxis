@@ -1,0 +1,7 @@
+# Package manifest (docs/wiki/packages-and-emit.md, D20). This package provides no
+# methodology content of its own — it declares a Claude Code plugin marketplace
+# (plugins.yaml) that Praxis emits into .claude/settings.json. See
+# docs/wiki/emitters.md/D19 for the quarantine-per-tool shape this mirrors.
+name: drawio
+layer: external
+provides: [plugins]

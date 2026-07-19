@@ -1,0 +1,10 @@
+# Package manifest (docs/wiki/packages-and-emit.md, D29). Ships a standing reminder
+# (rules.md) plus the /praxis-upkeep command (commands/upkeep.md): one entry point
+# that runs the deterministic `praxis check` drift gate and then both semantic-drift
+# passes — the instruction-layer update (/praxis-instructions) and the wiki lint
+# (/praxis-wiki Phase 4) — and reports one consolidated result. Layer 1 /
+# stack- & tool-agnostic; defers to those two commands rather than restating
+# their steps, so the detail can't drift independently of its canonical home.
+name: upkeep
+layer: layer1
+provides: [rules, commands]

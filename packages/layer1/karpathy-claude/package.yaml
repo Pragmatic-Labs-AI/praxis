@@ -1,0 +1,5 @@
+# Package manifest (docs/wiki/packages-and-emit.md, D20). Declares what this package is and
+# provides; the loader (src/packages.ts) validates it and resolves requires/conflicts.
+name: karpathy-claude
+layer: layer1
+provides: [rules]

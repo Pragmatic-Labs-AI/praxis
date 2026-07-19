@@ -1,0 +1,7 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Pragmatic-Labs-AI/praxis/security/advisories/new
+    about: >-
+      Please report suspected vulnerabilities privately — see SECURITY.md.
+      Do not open a public issue for a security report.

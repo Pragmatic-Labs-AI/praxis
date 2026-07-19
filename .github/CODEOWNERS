@@ -1,0 +1,23 @@
+# Praxis CODEOWNERS.
+#
+# Org-migration posture: ownership resolves to Pragmatic Labs org teams so
+# restoring two-person core review is an approval-count change, not new
+# plumbing. Both teams must exist (with at least one member each) before
+# "require review from Code Owners" is enabled on the public repo —
+# CODEOWNERS entries naming missing teams silently match nothing.
+
+* @pragmatic-labs-ai/core
+
+# Core paths (methodology + harness)
+/src/ @pragmatic-labs-ai/core
+/packages/ @pragmatic-labs-ai/core
+/test/ @pragmatic-labs-ai/core
+/conformance/ @pragmatic-labs-ai/core
+
+# Release surface (publish path, package boundary, public snapshot)
+/.github/ @pragmatic-labs-ai/core @pragmatic-labs-ai/release
+/package.json @pragmatic-labs-ai/core @pragmatic-labs-ai/release
+/npm-shrinkwrap.json @pragmatic-labs-ai/core @pragmatic-labs-ai/release
+/praxis.yaml @pragmatic-labs-ai/core
+/scripts/ @pragmatic-labs-ai/core @pragmatic-labs-ai/release
+/docs/public/ @pragmatic-labs-ai/core @pragmatic-labs-ai/release

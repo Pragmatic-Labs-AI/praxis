@@ -1,0 +1,11 @@
+{
+  "name": "fresh-app",
+  "version": "1.0.0",
+  "description": "Minimal fixture for Praxis first-run dogfooding (examples/fresh-app).",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "license": "UNLICENSED"
+}

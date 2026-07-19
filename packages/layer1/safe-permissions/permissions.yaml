@@ -1,0 +1,26 @@
+# Neutral permission policy — the enforcement side of the rails
+# (docs/wiki/emitters.md, D18/D19). Tool-agnostic INTENT expressed as capabilities; per-tool emitters
+# translate to target-native Claude Code and Codex controls; tools without a
+# permission model emit nothing. Edit your own settings to tune — Praxis owns
+# only the rules it emits and never clobbers rules you add.
+#
+# Posture: allow common local dev (smooth); prompt before anything that leaves the
+# machine or mutates dependencies; deny destructive / exfiltration actions.
+# Capability vocabulary is closed — see src/permissions.ts.
+
+allow:
+  - read-repo # read repository files
+  - edit-repo # create / edit / write repository files
+  - run-dev-scripts # test, lint, typecheck, build
+  - read-only-git # git status / diff / log
+  - git-commit # commit locally
+
+ask:
+  - git-push # pushes leave the machine
+  - install-deps # mutates the dependency tree
+
+deny:
+  - destructive-delete # rm -rf
+  - force-push # rewrites remote history
+  - read-secrets # .env, *.pem, credential files
+  - global-install # global package installs escape the repo

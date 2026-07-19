@@ -1,0 +1,60 @@
+{
+  "name": "@pragmatic-labs/praxis",
+  "version": "0.1.17",
+  "description": "A CLI that installs an AI methodology layer into a codebase.",
+  "keywords": [
+    "claude-code",
+    "codex",
+    "agents-md",
+    "agent-instructions",
+    "ai-methodology",
+    "cli",
+    "drift-detection"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pragmatic-Labs-AI/praxis.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Pragmatic-Labs-AI/praxis/issues"
+  },
+  "homepage": "https://github.com/Pragmatic-Labs-AI/praxis#readme",
+  "type": "module",
+  "bin": {
+    "praxis": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "packages",
+    "NOTICE",
+    "npm-shrinkwrap.json"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run test/",
+    "conformance": "vitest run conformance/",
+    "selfcheck": "node dist/cli.js check",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "license": "Apache-2.0",
+  "author": "Pragmatic Labs",
+  "dependencies": {
+    "@clack/prompts": "^1.5.1",
+    "commander": "^15.0.0",
+    "yaml": "^2.9.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.9"
+  }
+}

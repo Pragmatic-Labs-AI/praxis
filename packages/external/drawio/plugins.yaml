@@ -1,0 +1,17 @@
+# Declarative Claude Code plugin-marketplace reference (src/plugins.ts).
+# Praxis never executes anything here — this is committable config that Claude
+# Code itself reads on folder-trust to offer installing/enabling the plugin.
+# Verified against github.com/Agents365-ai/365-skills, which genuinely ships no
+# tags: ref is the repository's HEAD commit SHA (git ls-remote, 2026-07-18),
+# sanity-checked to still contain the drawio skill this package wraps
+# (plugins/drawio in .claude-plugin/marketplace.json). A tag is a useful
+# label, not an integrity boundary — an unpinned ref is not an option either.
+targets: [claude-code]
+marketplace:
+  name: 365-skills
+  source:
+    source: github
+    repo: Agents365-ai/365-skills
+    ref: 3fa2281be5cef1f757b94cc16a0a5fe83f425f16 # HEAD as of 2026-07-18
+enable:
+  - drawio@365-skills

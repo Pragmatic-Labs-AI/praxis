@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+*.log
+.DS_Store
+
+# Session handoffs are transient local scratch — durable decisions live in
+# docs/ARCHITECTURE.md §11, not here.
+docs/handoffs/

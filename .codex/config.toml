@@ -1,0 +1,19 @@
+# praxis:begin safe-permissions sha256=fbaef31363e9d8e19b3a650acfd56dcb762e89025b164b795b33838c66ca99ab
+default_permissions = "praxis-safe-permissions"
+
+[permissions.praxis-safe-permissions]
+description = "Workspace editing with Praxis secret-file protections and no sandbox network access."
+extends = ":workspace"
+
+[permissions.praxis-safe-permissions.filesystem]
+glob_scan_max_depth = 12
+
+[permissions.praxis-safe-permissions.filesystem.":workspace_roots"]
+".env" = "deny"
+"**/.env*" = "deny"
+"**/*.pem" = "deny"
+"**/credentials*" = "deny"
+
+[permissions.praxis-safe-permissions.network]
+enabled = false
+# praxis:end safe-permissions

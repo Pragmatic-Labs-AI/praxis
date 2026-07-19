@@ -1,0 +1,10 @@
+# Package manifest (docs/wiki/packages-and-emit.md). Layer 2: a stack-specific
+# decision recipe for Python backend codebases — how to choose the right test
+# layer (unit vs integration/e2e) and honour the harness-before-features
+# ordering — pointing at the target repo's own test suites for the concrete shape.
+# Craft, not domain: portable across any Python project. Applies only when
+# praxis.yaml declares the `python-backend` stack.
+name: python-testing
+layer: layer2
+stack: python-backend
+provides: [rules]
