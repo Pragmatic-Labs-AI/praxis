@@ -3,10 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { runSync } from "../src/sync.js";
+import { currentMethodology } from "./helpers.js";
 
 const MANIFEST = `
 version: 1
-methodology: "0.1.0"
+methodology: "${currentMethodology()}"
 stacks: [python-backend]
 targets: [claude-code, agents-md]
 packages: [karpathy-claude]

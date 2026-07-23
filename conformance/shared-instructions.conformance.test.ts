@@ -5,10 +5,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { reconcile } from "../src/program.js";
 import { SHARED_PROJECT_BEGIN, SHARED_PROJECT_END } from "../src/shared-instructions.js";
 import { runSync } from "../src/sync.js";
+import { currentMethodology } from "../test/helpers.js";
 
 const MANIFEST = `
 version: 1
-methodology: "0.1.0"
+methodology: "${currentMethodology()}"
 targets: [claude-code, codex]
 packages: [karpathy-claude]
 `;

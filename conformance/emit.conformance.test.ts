@@ -3,6 +3,7 @@ import { applyOp, loadPackageSource, planEmit } from "../src/emit.js";
 import type { Manifest } from "../src/manifest.js";
 import { findBlock } from "../src/merge.js";
 import { availablePackages } from "../src/packages.js";
+import { currentMethodology } from "../test/helpers.js";
 
 /**
  * Conformance: Layer 1 emit is tool-neutral and delivered per the target's rules
@@ -12,7 +13,7 @@ import { availablePackages } from "../src/packages.js";
  */
 const MANIFEST: Manifest = {
   version: 1,
-  methodology: "0.1.0",
+  methodology: currentMethodology(),
   stacks: ["python-backend"],
   targets: ["claude-code", "agents-md"],
   packages: ["karpathy-claude"],

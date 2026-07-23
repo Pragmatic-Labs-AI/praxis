@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildProgram } from "../src/program.js";
 import { runSync } from "../src/sync.js";
+import { currentMethodology } from "../test/helpers.js";
 
 /**
  * Conformance: `sync` prune-on-removal (D46). The manifest expresses absence
@@ -17,28 +18,28 @@ import { runSync } from "../src/sync.js";
 
 const TWO_PACKAGES = `
 version: 1
-methodology: "0.1.0"
+methodology: "${currentMethodology()}"
 targets: [claude-code]
 packages: [karpathy-claude, instruction-upkeep]
 `;
 
 const ONE_PACKAGE = `
 version: 1
-methodology: "0.1.0"
+methodology: "${currentMethodology()}"
 targets: [claude-code]
 packages: [karpathy-claude]
 `;
 
 const TWO_PACKAGES_AGENTS_MD = `
 version: 1
-methodology: "0.1.0"
+methodology: "${currentMethodology()}"
 targets: [agents-md]
 packages: [karpathy-claude, instruction-upkeep]
 `;
 
 const ONE_PACKAGE_AGENTS_MD = `
 version: 1
-methodology: "0.1.0"
+methodology: "${currentMethodology()}"
 targets: [agents-md]
 packages: [karpathy-claude]
 `;

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { planEmit } from "../src/emit.js";
 import type { Manifest } from "../src/manifest.js";
 import { runSync } from "../src/sync.js";
+import { currentMethodology } from "../test/helpers.js";
 
 /**
  * Conformance: project-local packages (docs/wiki/packages-and-emit.md). A `./`-
@@ -34,7 +35,7 @@ function writeLocalPackage(cwd: string, relDir: string, yaml: string, rulesMd?: 
 }
 
 function manifest(packages: string[], targets: Manifest["targets"] = ["claude-code"]): Manifest {
-  return { version: 1, methodology: "0.1.0", targets, packages };
+  return { version: 1, methodology: currentMethodology(), targets, packages };
 }
 
 describe("conformance: project-local packages", () => {
@@ -140,7 +141,7 @@ describe("conformance: project-local packages", () => {
     );
     const manifestYaml = [
       "version: 1",
-      'methodology: "0.1.0"',
+      `methodology: "${currentMethodology()}"`,
       "targets: [claude-code]",
       "packages: [karpathy-claude, ./praxis/packages/local-demo]",
       "",
@@ -179,7 +180,7 @@ describe("conformance: project-local packages", () => {
     //    shipped package name.
     writeFileSync(
       join(cwd, "praxis.yaml"),
-      ['version: 1', 'methodology: "0.1.0"', "targets: [claude-code]", "packages: [karpathy-claude]", ""].join(
+      ['version: 1', `methodology: "${currentMethodology()}"`, "targets: [claude-code]", "packages: [karpathy-claude]", ""].join(
         "\n",
       ),
       "utf8",

@@ -13,10 +13,6 @@ import { z } from "zod";
  * a clear validation error. The lists grow as emitters and stacks land.
  */
 
-// The version of methodology content Praxis currently ships. `init` stamps new
-// manifests with it; `sync` offers to bump a repo to it (D6).
-export const METHODOLOGY_VERSION = "0.1.0";
-
 // Emit targets with an implemented emitter. Grows as emitters are added.
 export const TARGETS = ["claude-code", "codex", "agents-md"] as const;
 

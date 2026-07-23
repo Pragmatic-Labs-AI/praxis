@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildProgram } from "../src/program.js";
 import { runSync } from "../src/sync.js";
+import { currentMethodology } from "../test/helpers.js";
 
 /**
  * Conformance: the sync/check orchestration upholds the interaction-model / merge-engine contract
@@ -14,7 +15,7 @@ import { runSync } from "../src/sync.js";
 
 const MANIFEST = `
 version: 1
-methodology: "0.1.0"
+methodology: "${currentMethodology()}"
 stacks: [python-backend]
 targets: [claude-code, agents-md]
 packages: [karpathy-claude]

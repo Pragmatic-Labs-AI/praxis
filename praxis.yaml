@@ -1,7 +1,7 @@
 # Praxis's own methodology manifest — Praxis installs Praxis (docs/wiki/self-hosting.md).
 # Edit this, then run `praxis sync`. `praxis check` guards drift in CI.
 version: 1
-methodology: "0.1.0"
+methodology: "0.2.0"
 # Praxis is a TS/Node project, so it dogfoods the `node` Layer 2 stack: the
 # node-recipes / node-testing craft recipes apply to its own *.ts sources.
 stacks: [node]

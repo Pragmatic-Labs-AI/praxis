@@ -3,6 +3,7 @@ import { applyOp, computeMethodologySize, loadPackageSource, planEmit } from "..
 import type { Manifest } from "../src/manifest.js";
 import { findBlock } from "../src/merge.js";
 import { availablePackages } from "../src/packages.js";
+import { currentMethodology } from "./helpers.js";
 
 /** Look up a shipped package's directory by name, for loader calls that are
  *  now dir-based (project-local packages, see src/packages.ts `dir`). */
@@ -12,7 +13,7 @@ function dirOf(pkg: string): string {
 
 const manifest: Manifest = {
   version: 1,
-  methodology: "0.1.0",
+  methodology: currentMethodology(),
   stacks: ["python-backend"],
   targets: ["claude-code", "agents-md"],
   packages: ["karpathy-claude"],
@@ -57,7 +58,7 @@ describe("emit", () => {
   it("turns Layer 2 path frontmatter into Codex-readable applicability prose", () => {
     const codexNode: Manifest = {
       version: 1,
-      methodology: "0.1.0",
+      methodology: currentMethodology(),
       stacks: ["node"],
       targets: ["codex"],
       packages: ["karpathy-claude", "node-recipes"],

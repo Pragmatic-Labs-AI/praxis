@@ -4,6 +4,7 @@ import { applyOp, planEmit } from "../src/emit.js";
 import { TARGETS, type Manifest } from "../src/manifest.js";
 import { availablePackages } from "../src/packages.js";
 import { loadPluginsBlock } from "../src/plugins.js";
+import { currentMethodology } from "../test/helpers.js";
 
 /**
  * Conformance: the declarative plugin-marketplace artifact (fourth `provides`
@@ -30,7 +31,7 @@ function dirOf(pkg: string): string {
 
 const manifestWith = (pkg: string): Manifest => ({
   version: 1,
-  methodology: "0.1.0",
+  methodology: currentMethodology(),
   targets: ["claude-code", "agents-md"],
   packages: [pkg],
 });

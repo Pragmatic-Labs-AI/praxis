@@ -99,8 +99,8 @@ target stacks — Python backend, Node, and React — ship recipe packages; only
 ## Manifest (`praxis.yaml`)
 
 The visible, committed, hand-editable file recording which packages a repo has
-installed and at what pinned version — the declarative truth that `praxis sync`
-reads and writes. Praxis self-hosts its own `praxis.yaml`. [`stacks`](#stack--stacks)
+installed and at what pinned methodology version — the declarative truth
+that `praxis sync` reads and writes. Praxis self-hosts its own `praxis.yaml`. [`stacks`](#stack--stacks)
 is an optional list (set only when Layer 2 recipes are wanted). See
 [interaction-model.md](interaction-model.md); decisions D4, D6, D15, D30.
 
