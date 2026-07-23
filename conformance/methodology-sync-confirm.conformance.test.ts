@@ -119,7 +119,7 @@ describe("conformance: interactive sync confirm-to-bump (D59)", () => {
     const result = reconcile(dir, false, "check");
     const guidance = "`check` must never prompt or auto-bump — an upgrade-available pin is always a hard fail there.";
     expect(result.exitCode, guidance).toBe(1);
-    expect(result.syncError, guidance).toMatch(new RegExp(STALE_PIN.replace(/\./g, "\\.")));
+    expect(result.syncError, guidance).toMatch(new RegExp(STALE_PIN.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
     expect(existsSync(join(dir, AGENTS)), guidance).toBe(false);
   });
 
