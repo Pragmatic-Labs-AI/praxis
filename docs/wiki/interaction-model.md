@@ -173,9 +173,13 @@ reaches a repo only when the user explicitly updates this value and re-syncs —
 never behind the user's back (D6). A real interactive terminal running `sync`
 on an upgrade-available pin (running CLI newer than the pinned value) is
 offered a confirm to bump the value for you and apply in the same action —
-declining writes nothing; `check` and `sync --yes`/any non-interactive
-invocation never prompt and keep failing loud, telling you which value to set
-by hand (D59). `stacks` is **optional** and a **list** (D15/D30):
+the targeted manifest edit is staged as the required first write in the same
+transaction plan as emitted files. Planning/staging failure or a concurrent
+manifest edit writes nothing; managed-block conflicts keep the confirmed pin
+while safe changes apply, and a mid-commit failure leaves the new pin as the
+retryable desired state. Declining writes nothing; `check` and `sync --yes`/any
+non-interactive invocation never prompt and keep failing loud, telling you
+which value to set by hand (D59/D61). `stacks` is **optional** and a **list** (D15/D30):
 Layer 1 is stack-agnostic, so a repo installing only general methodology may
 declare no stacks; the key appears only when Layer 2 recipes are
 wanted, and a repo can be more than one stack at once (e.g. a React frontend with

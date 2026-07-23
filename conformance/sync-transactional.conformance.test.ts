@@ -400,4 +400,34 @@ describe("conformance: external-change detection covers a previously-absent dest
     expect(existsSync(join(dir, RULE_KARPATHY)), guidance).toBe(true);
     assertNoLeftoverTempFiles(dir);
   });
+
+  it("a concurrent edit to the required manifest write aborts every emitted-file commit", () => {
+    const dir = tempProject();
+    const manifestPath = join(dir, "praxis.yaml");
+    const original = "version: 1\nmethodology: \"0.0.1\"\ntargets: [agents-md]\npackages: [karpathy-claude]\n";
+    const bumped = original.replace("0.0.1", currentMethodology());
+    const concurrent = "# concurrently edited\n" + original;
+    writeFileSync(manifestPath, original, "utf8");
+
+    fsFail.concurrentCreateDestBasename = "praxis.yaml";
+    fsFail.concurrentCreateContent = concurrent;
+
+    const report = applyManifest(ONE_PACKAGE, dir, true, {
+      path: "praxis.yaml",
+      existing: original,
+      content: bumped,
+    });
+    fsFail.concurrentCreateDestBasename = undefined;
+
+    const guidance =
+      "The confirmed methodology bump is a required, manifest-first transaction mutation. " +
+      "If praxis.yaml changes after planning, sync must preserve those concurrent bytes and " +
+      "abort every later emitted-file commit.";
+    expect(readFileSync(manifestPath, "utf8"), guidance).toBe(concurrent);
+    expect(existsSync(join(dir, AGENTS)), guidance).toBe(false);
+    const manifestReport = report.files.find((file) => file.path === "praxis.yaml");
+    expect(manifestReport?.conflicts, guidance).toContain("external-change");
+    expect(report.hasConflicts, guidance).toBe(true);
+    assertNoLeftoverTempFiles(dir);
+  });
 });

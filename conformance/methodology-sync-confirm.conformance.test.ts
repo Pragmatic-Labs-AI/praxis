@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { confirm } from "@clack/prompts";
@@ -10,7 +10,7 @@ import { praxisVersion } from "../src/version.js";
 
 /**
  * Conformance: the interactive `praxis sync` confirm-to-bump prompt — D59's
- * previously-deferred sub-item, shipped here (D62). Mirrors
+ * previously-deferred sub-item, shipped as part of D59. Mirrors
  * sync-transactional.conformance.test.ts's `vi.mock` shape, applied to
  * "@clack/prompts"'s `confirm` instead of "node:fs": the fake terminal below
  * (`setTTY`) never touches a real pty, so these tests exercise the exact
@@ -34,6 +34,7 @@ let stdoutTTY: PropertyDescriptor | undefined;
 
 afterEach(() => {
   clack.confirmResult = true;
+  process.exitCode = undefined;
   vi.clearAllMocks(); // each test's `confirm` call-count assertion must be independent of prior tests' calls
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
   if (stdinTTY) Object.defineProperty(process.stdin, "isTTY", stdinTTY);
@@ -67,7 +68,7 @@ function stalePinnedManifest(): Manifest {
 
 const AGENTS = "AGENTS.md";
 
-describe("conformance: interactive sync confirm-to-bump (D59/D62)", () => {
+describe("conformance: interactive sync confirm-to-bump (D59)", () => {
   it("confirm=true rewrites praxis.yaml's methodology to the running version and applies the sync; a follow-up check is clean", async () => {
     const dir = tempProject();
     const manifestPath = join(dir, "praxis.yaml");
@@ -185,7 +186,7 @@ describe("conformance: interactive sync confirm-to-bump (D59/D62)", () => {
     expect(afterLines[2], guidance).toBe(`methodology: "${running}" # bumped only via \`praxis sync\``);
   });
 
-  it("a reconcile failure after a confirmed bump rolls back the pin: praxis.yaml is restored, not left bumped", async () => {
+  it("a planning failure after confirmation leaves the pin untouched because the transaction never commits", async () => {
     const dir = tempProject();
     const manifestPath = join(dir, "praxis.yaml");
     // "not-a-real-package" passes praxis.yaml's shape validation (loadManifest,
@@ -206,12 +207,55 @@ describe("conformance: interactive sync confirm-to-bump (D59/D62)", () => {
     await runSyncAction({}, dir);
 
     const guidance =
-      "D59 treats the confirmed bump and its content apply as one action: when the apply " +
-      "(runReconcile) fails, offerMethodologyBump's write must be rolled back — praxis.yaml's " +
-      "methodology: must be restored to its original value, never left bumped with unsynced content.";
+      "The confirmed bump is staged with the content apply, not written eagerly. If planning " +
+      "(resolvePackages inside planEmit) fails before staging/commit, praxis.yaml must remain " +
+      "byte-identical without needing a compensating rollback.";
     expect(readFileSync(manifestPath, "utf8"), guidance).toBe(before);
     expect(loadManifest(manifestPath).methodology, guidance).toBe(STALE_PIN);
     expect(existsSync(join(dir, AGENTS)), guidance).toBe(false);
+  });
+
+  it("a managed-block conflict keeps the confirmed pin while safe mutations apply", async () => {
+    const dir = tempProject();
+    const manifestPath = join(dir, "praxis.yaml");
+    const running = praxisVersion();
+    const current: Manifest = {
+      version: 1,
+      methodology: running,
+      targets: ["claude-code", "agents-md"],
+      packages: ["karpathy-claude"],
+    };
+    writeFileSync(manifestPath, renderManifestYaml(current), "utf8");
+    expect(reconcile(dir, true, "sync").exitCode).toBe(0);
+
+    const agentsPath = join(dir, AGENTS);
+    const agentsBefore = readFileSync(agentsPath, "utf8");
+    const edited = agentsBefore.replace(
+      /(<!-- praxis:begin karpathy-claude[^\n]*-->\n)([\s\S]*?)(\n<!-- praxis:end karpathy-claude -->)/,
+      "$1$2 (MY EDIT)$3",
+    );
+    expect(edited).not.toBe(agentsBefore);
+    writeFileSync(agentsPath, edited, "utf8");
+
+    const rulePath = join(dir, ".claude/rules/praxis-karpathy-claude.md");
+    unlinkSync(rulePath);
+    writeFileSync(
+      manifestPath,
+      renderManifestYaml({ ...current, methodology: STALE_PIN }),
+      "utf8",
+    );
+    setTTY(true);
+    clack.confirmResult = true;
+
+    await runSyncAction({}, dir);
+
+    const guidance =
+      "A managed-block conflict does not mean sync wrote nothing: safe mutations still commit. " +
+      "The confirmed methodology pin must therefore remain at the running version, alongside " +
+      "those mutations, instead of being rolled back to a stale pin.";
+    expect(loadManifest(manifestPath).methodology, guidance).toBe(running);
+    expect(readFileSync(agentsPath, "utf8"), guidance).toContain("(MY EDIT)");
+    expect(existsSync(rulePath), guidance).toBe(true);
   });
 
   it("MethodologyIncompatibleError (pinned newer than running) is never offered, even interactively", async () => {

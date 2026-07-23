@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { cancel, confirm, intro, isCancel, multiselect, note, outro, select, updateSettings } from "@clack/prompts";
 import { Command } from "commander";
@@ -26,7 +26,13 @@ import {
 import { MethodologyUpgradeAvailableError, resolveMethodology, setMethodologyInYaml } from "./methodology.js";
 import { availablePackages } from "./packages.js";
 import { checkSharedInstructions, type SharedInstructionReport } from "./shared-instructions.js";
-import { applyManifest, runSync, type FileReport, type SyncReport } from "./sync.js";
+import {
+  applyManifest,
+  runSync,
+  type FileReport,
+  type RequiredWrite,
+  type SyncReport,
+} from "./sync.js";
 import { praxisVersion } from "./version.js";
 
 /**
@@ -188,14 +194,21 @@ export interface ReconcileResult {
  * `praxis.yaml`) must still report whether cited repo reality resolves, rather
  * than silently skipping the check and leaving the tripwire dark. (D40)
  */
-export function reconcile(cwd: string, write: boolean, mode: "sync" | "check"): ReconcileResult {
+export function reconcile(
+  cwd: string,
+  write: boolean,
+  mode: "sync" | "check",
+  manifestOverride?: { manifest: Manifest; requiredWrite: RequiredWrite },
+): ReconcileResult {
   const version = praxisVersion();
   let syncReport: SyncReport | undefined;
   let syncError: string | undefined;
   let exitCode = 0;
 
   try {
-    syncReport = runSync({ cwd, write });
+    syncReport = manifestOverride
+      ? applyManifest(manifestOverride.manifest, cwd, write, manifestOverride.requiredWrite)
+      : runSync({ cwd, write });
     if (mode === "check" ? syncReport.changed || syncReport.hasConflicts : syncReport.hasConflicts) {
       exitCode = 1;
     }
@@ -258,8 +271,13 @@ export function reconcile(cwd: string, write: boolean, mode: "sync" | "check"): 
   };
 }
 
-function runReconcile(write: boolean, mode: "sync" | "check", cwd: string = process.cwd()): ReconcileResult {
-  const result = reconcile(cwd, write, mode);
+function runReconcile(
+  write: boolean,
+  mode: "sync" | "check",
+  cwd: string = process.cwd(),
+  manifestOverride?: { manifest: Manifest; requiredWrite: RequiredWrite },
+): ReconcileResult {
+  const result = reconcile(cwd, write, mode, manifestOverride);
 
   // Surface the running version in check output so a stale npx-cached build is
   // visible instead of silently under-reporting (D40).
@@ -309,22 +327,21 @@ function isInteractiveTerminal(): boolean {
   return Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY);
 }
 
-/** A confirmed bump actually wrote `praxis.yaml` — carries what's needed to
- *  restore it verbatim if the reconcile that's supposed to accompany it fails
- *  (D59 "one confirmed action": the pin bump and the content apply must land,
- *  or roll back, together). */
-interface BumpRollback {
-  manifestPath: string;
-  originalText: string;
+/** A confirmed bump is planned but not yet written. It joins sync's staged
+ *  mutation list as a required, manifest-first write so pre-commit failure is
+ *  a no-op and a concurrent manifest edit aborts all emitted-file commits. */
+interface ConfirmedBump {
+  manifest: Manifest;
+  requiredWrite: RequiredWrite;
 }
 
 interface BumpOutcome {
   outcome: "proceed" | "declined";
-  rollback?: BumpRollback;
+  confirmed?: ConfirmedBump;
 }
 
 /**
- * Interactive-`sync`-only (D59/D62): when the running CLI is newer than the
+ * Interactive-`sync`-only (D59): when the running CLI is newer than the
  * pinned `methodology:` (`MethodologyUpgradeAvailableError`), offer a confirm
  * to bump `praxis.yaml` to the running version before the normal sync
  * applies. Every other outcome — methodology already resolves, the manifest
@@ -363,8 +380,17 @@ async function offerMethodologyBump(cwd: string): Promise<BumpOutcome> {
     if (isCancel(shouldBump) || !shouldBump) return { outcome: "declined" };
 
     const originalText = readFileSync(manifestPath, "utf8");
-    writeFileSync(manifestPath, setMethodologyInYaml(originalText, running), "utf8");
-    return { outcome: "proceed", rollback: { manifestPath, originalText } };
+    return {
+      outcome: "proceed",
+      confirmed: {
+        manifest: { ...manifest, methodology: running },
+        requiredWrite: {
+          path: "praxis.yaml",
+          existing: originalText,
+          content: setMethodologyInYaml(originalText, running),
+        },
+      },
+    };
   }
 }
 
@@ -372,7 +398,7 @@ async function offerMethodologyBump(cwd: string): Promise<BumpOutcome> {
  *  pre-existing fail-loud behavior untouched (never prompt); only a real
  *  interactive TTY sync offers the methodology confirm-to-bump above. */
 export async function runSyncAction(opts: { yes?: boolean }, cwd: string = process.cwd()): Promise<void> {
-  let rollback: BumpRollback | undefined;
+  let confirmed: ConfirmedBump | undefined;
 
   if (!opts.yes && isInteractiveTerminal()) {
     const bump = await offerMethodologyBump(cwd);
@@ -380,17 +406,17 @@ export async function runSyncAction(opts: { yes?: boolean }, cwd: string = proce
       cancel("No changes made.");
       return;
     }
-    rollback = bump.rollback;
+    confirmed = bump.confirmed;
   }
 
-  const result = runReconcile(true, "sync", cwd);
-  if (rollback && result.exitCode !== 0) {
-    // The confirmed bump and the content apply are one action (D59): if the
-    // apply that was supposed to accompany the bump failed, the pin must not
-    // be left bumped on its own — restore praxis.yaml to what it was before
-    // the confirm, byte-for-byte.
-    writeFileSync(rollback.manifestPath, rollback.originalText, "utf8");
-  }
+  runReconcile(
+    true,
+    "sync",
+    cwd,
+    confirmed
+      ? { manifest: confirmed.manifest, requiredWrite: confirmed.requiredWrite }
+      : undefined,
+  );
 }
 
 // --- init -----------------------------------------------------------------

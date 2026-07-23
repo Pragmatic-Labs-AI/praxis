@@ -66,7 +66,7 @@ describe("setMethodologyInYaml", () => {
   const guidance =
     "setMethodologyInYaml (src/methodology.ts) must rewrite only the methodology: " +
     "value — a line-targeted text edit, never a renderManifestYaml re-render that would " +
-    "destroy a hand-edited praxis.yaml's comments/formatting (D59/D62 confirm-to-bump).";
+    "destroy a hand-edited praxis.yaml's comments/formatting (D59 confirm-to-bump).";
 
   it("rewrites a double-quoted value, byte-preserving every other line", () => {
     const before = [

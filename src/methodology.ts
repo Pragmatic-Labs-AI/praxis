@@ -114,7 +114,7 @@ export class MethodologyLineNotFoundError extends Error {
 const METHODOLOGY_LINE = /^([ \t]*methodology:[ \t]*)("[^"]*"|'[^']*'|[^\s#]+)([ \t]*(?:#.*)?)$/m;
 
 /**
- * Rewrite only the `methodology:` value in a manifest's raw YAML text (D59/D62's
+ * Rewrite only the `methodology:` value in a manifest's raw YAML text (D59's
  * interactive `sync` confirm-to-bump). A targeted single-line text edit, not a
  * parse/re-render round-trip: `renderManifestYaml` (src/init.ts) rebuilds the
  * whole file canonically and would silently destroy a hand-edited

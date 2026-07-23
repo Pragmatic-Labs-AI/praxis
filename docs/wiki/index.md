@@ -71,6 +71,7 @@ Read this index first, then follow the links that bear on your task.
   Layer 1/2, stack/stacks, harness, emitter, target, conformance, package,
   manifest, anchor, decision recipe, and the "memory = the agent's, not the
   app's" disambiguation.
+- [log](log.md) — append-only record of wiki maintenance, newest last.
 
 ## Source-of-truth anchors
 

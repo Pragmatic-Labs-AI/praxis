@@ -40,11 +40,13 @@ import { resolveContained } from "./path-safety.js";
  * compute their decision — reads and reconciliation — exactly as before,
  * read-only. Instead of writing/deleting as they go, every pass appends to one
  * ordered `mutations` list. Once all five passes have run (**plan**, unchanged
- * decision logic), `commitMutations` stages every write to a sibling temp file,
- * verifies it by hash, and only then performs the actual renames/unlinks — one
- * commit boundary spanning all five passes, not just the first. A failure
- * before commit leaves every destination untouched; a failure during commit
- * converges on the next `sync` (D10/D12 preserved — see docs/wiki/decisions.md D61).
+ * decision logic), `commitMutations` stages every write in the nearest existing
+ * ancestor directory, verifies it by hash, and only then performs the actual
+ * renames/unlinks — one commit boundary spanning all five passes, not just the
+ * first. A confirmed methodology-pin bump can join that plan as a required,
+ * manifest-first write. A failure before commit leaves every destination
+ * untouched; a failure during commit converges on the next `sync` (D10/D12
+ * preserved — see docs/wiki/decisions.md D61).
  */
 
 export type FileStatus = "created" | "updated" | "unchanged" | "deleted";
@@ -91,8 +93,26 @@ export class SyncStagingError extends Error {
  *  it in place once the mutation's real outcome (committed, or refused as an
  *  external-change conflict) is known. */
 type Mutation =
-  | { action: "write"; path: string; abs: string; content: string; existingHash: string | undefined; report: FileReport }
+  | {
+      action: "write";
+      path: string;
+      abs: string;
+      content: string;
+      existingHash: string | undefined;
+      report: FileReport;
+      /** Abort the remaining commit when this write conflicts. Used for the
+       *  manifest-first methodology bump: emitted files must never proceed
+       *  against a concurrently edited manifest. */
+      required?: boolean;
+    }
   | { action: "delete"; path: string; abs: string; existingHash: string | undefined; report: FileReport; cleanup?: () => void };
+
+export interface RequiredWrite {
+  path: string;
+  content: string;
+  /** Exact plan-time bytes. Commit refuses the write if disk no longer matches. */
+  existing: string;
+}
 
 export function runSync(opts: SyncOptions): SyncReport {
   const manifestPath = opts.manifestPath ?? join(opts.cwd, "praxis.yaml");
@@ -104,11 +124,37 @@ export function runSync(opts: SyncOptions): SyncReport {
  * manifest comes from the caller rather than disk — `init` uses this to preview
  * the emit before `praxis.yaml` exists.
  */
-export function applyManifest(manifest: Manifest, cwd: string, write: boolean): SyncReport {
+export function applyManifest(
+  manifest: Manifest,
+  cwd: string,
+  write: boolean,
+  requiredWrite?: RequiredWrite,
+): SyncReport {
   const ops = planEmit(manifest, cwd);
 
   const files: FileReport[] = [];
   const mutations: Mutation[] = [];
+  if (requiredWrite) {
+    const abs = resolveContained(cwd, requiredWrite.path, "required transaction file");
+    const report: FileReport = {
+      path: requiredWrite.path,
+      status: "updated",
+      conflicts: [],
+      written: false,
+    };
+    files.push(report);
+    if (write) {
+      mutations.push({
+        action: "write",
+        path: requiredWrite.path,
+        abs,
+        content: requiredWrite.content,
+        existingHash: hashContent(requiredWrite.existing),
+        report,
+        required: true,
+      });
+    }
+  }
   const handledPaths = new Set<string>();
   for (const op of ops) {
     handledPaths.add(op.path);
@@ -392,6 +438,7 @@ function commitMutations(mutations: Mutation[]): void {
           : onDisk !== undefined; // absent at plan time: must still be absent
       if (externalChange) {
         mutation.report.conflicts.push("external-change");
+        if (mutation.action === "write" && mutation.required) break;
         continue;
       }
       if (mutation.action === "write") {
