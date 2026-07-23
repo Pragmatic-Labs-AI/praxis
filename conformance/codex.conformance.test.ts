@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Manifest } from "../src/manifest.js";
 import { applyManifest } from "../src/sync.js";
+import { currentMethodology } from "../test/helpers.js";
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -19,7 +20,7 @@ function tempProject(): string {
 
 const MANIFEST: Manifest = {
   version: 1,
-  methodology: "0.1.0",
+  methodology: currentMethodology(),
   stacks: ["node"],
   targets: ["codex", "agents-md"],
   packages: [

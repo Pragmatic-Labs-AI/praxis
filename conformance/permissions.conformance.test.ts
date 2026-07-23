@@ -3,6 +3,7 @@ import { applyOp, planEmit } from "../src/emit.js";
 import type { Manifest } from "../src/manifest.js";
 import { availablePackages } from "../src/packages.js";
 import { loadPolicy, policyCapabilities } from "../src/permissions.js";
+import { currentMethodology } from "../test/helpers.js";
 
 /**
  * Conformance: the permission policy is a tool-neutral artifact emitted per-tool
@@ -15,7 +16,7 @@ const PKG = "safe-permissions";
 
 const MANIFEST: Manifest = {
   version: 1,
-  methodology: "0.1.0",
+  methodology: currentMethodology(),
   targets: ["claude-code", "agents-md"],
   packages: ["karpathy-claude", PKG],
 };

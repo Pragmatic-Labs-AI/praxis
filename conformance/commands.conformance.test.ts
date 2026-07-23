@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applyOp, loadCommandSources, planEmit } from "../src/emit.js";
 import type { Manifest } from "../src/manifest.js";
 import { availablePackages } from "../src/packages.js";
+import { currentMethodology } from "../test/helpers.js";
 
 /**
  * Conformance: slash commands are a tool-neutral artifact (third `provides`
@@ -34,7 +35,7 @@ const manifestWith = (pkg: string): Manifest => {
   const resolved = availablePackages().get(pkg);
   const base: Manifest = {
     version: 1,
-    methodology: "0.1.0",
+    methodology: currentMethodology(),
     targets: ["claude-code", "agents-md"],
     packages: ["karpathy-claude", pkg, ...(resolved?.requires ?? [])],
   };
@@ -211,7 +212,7 @@ describe("conformance: slash commands", () => {
 describe("conformance: onboarding bootstrap-delegation composition (D36)", () => {
   const onboardManifestWith = (extraPkg: string | null): Manifest => ({
     version: 1,
-    methodology: "0.1.0",
+    methodology: currentMethodology(),
     targets: ["claude-code"],
     packages: extraPkg ? ["karpathy-claude", "onboarding", extraPkg] : ["karpathy-claude", "onboarding"],
   });

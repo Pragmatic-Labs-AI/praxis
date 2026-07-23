@@ -2,10 +2,11 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, delimiter, join } from "node:path";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { METHODOLOGY_VERSION, STACKS, type Manifest, type Stack, type Target, type Workspace } from "./manifest.js";
+import { STACKS, type Manifest, type Stack, type Target, type Workspace } from "./manifest.js";
 import { availablePackages } from "./packages.js";
 import { hasSharedProjectBlock } from "./shared-instructions.js";
 import { applyManifest, type SyncReport } from "./sync.js";
+import { praxisVersion } from "./version.js";
 
 /**
  * `init` — the first-run install (docs/wiki/interaction-model.md, D17). Minimal by design:
@@ -159,7 +160,7 @@ export function defaultManifest(ctx: InitContext, targets?: Target[]): Manifest 
 
   const manifest: Manifest = {
     version: 1,
-    methodology: METHODOLOGY_VERSION,
+    methodology: praxisVersion(),
     targets:
       targets ??
       (ctx.detectedTargetsFromArtifacts.length > 0 ? ctx.detectedTargetsFromArtifacts : ["claude-code", "agents-md"]),
@@ -184,7 +185,7 @@ export function manifestFromSelections(
 ): Manifest {
   const manifest: Manifest = {
     version: 1,
-    methodology: METHODOLOGY_VERSION,
+    methodology: praxisVersion(),
     targets,
     packages,
   };

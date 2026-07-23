@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { planEmit } from "../src/emit.js";
 import type { Manifest } from "../src/manifest.js";
 import { runSync } from "../src/sync.js";
+import { currentMethodology } from "../test/helpers.js";
 
 /**
  * Conformance: consumer-repo safety (D54). Every write,
@@ -41,7 +42,7 @@ function tempDir(prefix: string): string {
 }
 
 function manifest(packages: string[], targets: Manifest["targets"] = ["claude-code"]): Manifest {
-  return { version: 1, methodology: "0.1.0", targets, packages };
+  return { version: 1, methodology: currentMethodology(), targets, packages };
 }
 
 describe("conformance: path/symlink containment (consumer-repo safety, D54)", () => {
@@ -55,7 +56,7 @@ describe("conformance: path/symlink containment (consumer-repo safety, D54)", ()
     symlinkSync(outside, join(repo, ".claude"), "dir");
     writeFileSync(
       join(repo, "praxis.yaml"),
-      ['version: 1', 'methodology: "0.1.0"', "targets: [claude-code]", "packages: [karpathy-claude]", ""].join(
+      ['version: 1', `methodology: "${currentMethodology()}"`, "targets: [claude-code]", "packages: [karpathy-claude]", ""].join(
         "\n",
       ),
       "utf8",
@@ -253,7 +254,7 @@ describe("conformance: path/symlink containment (consumer-repo safety, D54)", ()
     // the prune path (findOwnedOrphans, src/sync.ts).
     writeFileSync(
       join(repo, "praxis.yaml"),
-      ['version: 1', 'methodology: "0.1.0"', "targets: [claude-code]", "packages: [safe-permissions]", ""].join(
+      ['version: 1', `methodology: "${currentMethodology()}"`, "targets: [claude-code]", "packages: [safe-permissions]", ""].join(
         "\n",
       ),
       "utf8",
@@ -284,7 +285,7 @@ describe("conformance: path/symlink containment (consumer-repo safety, D54)", ()
       join(repo, "praxis.yaml"),
       [
         "version: 1",
-        'methodology: "0.1.0"',
+        `methodology: "${currentMethodology()}"`,
         "targets: [claude-code]",
         "packages: [karpathy-claude, ./praxis/packages/local-demo]",
         "",

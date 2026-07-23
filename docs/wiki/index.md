@@ -40,8 +40,9 @@ Read this index first, then follow the links that bear on your task.
   declarative-truth (D2), the `praxis`/`sync`/`check` command surface (D3), the
   first-run Quick-start/Customize wizard (D17→D33), multi-stack
   detect-then-confirm (D5/D30/D33), and the `praxis.yaml` manifest schema
-  (D4, D6, D15) incl. project-local `./` package entries (D49) and the
-  hand-added `workspace:` hub section (D53), plus peer-native shared
+  (D4, D6, D15) incl. project-local `./` package entries (D49), the
+  hand-added `workspace:` hub section (D53), and exact-match
+  methodology-version enforcement (D59), plus peer-native shared
   instruction parity (D48).
 - [packages-and-emit](packages-and-emit.md) — canonical: the two-layer
   methodology model, the on-disk package layout (D16), the package/manifest
@@ -77,7 +78,7 @@ Read this index first, then follow the links that bear on your task.
   layers, the command surface, dev workflow). A *derived* overview: the
   peer-native `CLAUDE.md` / `AGENTS.md` project instructions and this wiki win
   on conflict; keep the README in step with them.
-- `docs/wiki/decisions.md` — the canonical decision record (D1–D58 plus open
+- `docs/wiki/decisions.md` — the canonical decision record (D1–D61 plus open
   rows), fronted by a thematic decision digest. Append new numbered decisions
   here; fully superseded rows move verbatim to
   [decisions-archive](decisions-archive.md).

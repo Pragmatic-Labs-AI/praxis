@@ -21,7 +21,7 @@ praxisAnchors:
 
 How a user talks to Praxis, and where the resulting state lives. Canonical for
 the CLI surface, the first-run wizard, stack detection, and `praxis.yaml`.
-Decisions D2, D3, D4, D5, D6, D15, D17, D30, D33, D49, D52, D53.
+Decisions D2, D3, D4, D5, D6, D15, D17, D30, D33, D49, D52, D53, D59.
 
 ## Imperative entry, declarative truth (D2)
 
@@ -155,7 +155,7 @@ model.
 ```yaml
 # Edit this, then run `praxis sync`.
 version: 1
-methodology: "0.1.0"                 # pinned; `sync` offers to bump
+methodology: "0.1.0"                 # exact-version pin; mismatch fails check/sync (D59)
 stacks: [node, react]                # detection-seeded list, user-editable
 targets: [claude-code, codex]        # which agent tools to support
 packages:                            # Layer 1 + Layer 2 for the declared stacks
@@ -166,9 +166,16 @@ packages:                            # Layer 1 + Layer 2 for the declared stacks
   - ./praxis/packages/team-rules     # project-local package in this repo (D49)
 ```
 
-Schema is validated with `zod`. Methodology version is pinned here so new
-methodology reaches a repo only on an explicit `sync` that bumps it — never
-behind the user's back (D6). `stacks` is **optional** and a **list** (D15/D30):
+Schema is validated with `zod`. Methodology version is pinned here and
+enforced (D59): the pinned value is the exact CLI package version, and `sync`
+and `check` fail loud when the running CLI's version disagrees. New methodology
+reaches a repo only when the user explicitly updates this value and re-syncs —
+never behind the user's back (D6). A real interactive terminal running `sync`
+on an upgrade-available pin (running CLI newer than the pinned value) is
+offered a confirm to bump the value for you and apply in the same action —
+declining writes nothing; `check` and `sync --yes`/any non-interactive
+invocation never prompt and keep failing loud, telling you which value to set
+by hand (D59). `stacks` is **optional** and a **list** (D15/D30):
 Layer 1 is stack-agnostic, so a repo installing only general methodology may
 declare no stacks; the key appears only when Layer 2 recipes are
 wanted, and a repo can be more than one stack at once (e.g. a React frontend with

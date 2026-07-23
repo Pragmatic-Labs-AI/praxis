@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildProgram, reconcile } from "../src/program.js";
+import { currentMethodology } from "../test/helpers.js";
 
 /**
  * Conformance: the advisory methodology-size line (D45) reports the
@@ -29,21 +30,21 @@ function tempProject(manifestYaml: string): string {
 
 const CLAUDE_CODE_MANIFEST = `
 version: 1
-methodology: "0.1.0"
+methodology: "${currentMethodology()}"
 targets: [claude-code]
 packages: [karpathy-claude]
 `;
 
 const AGENTS_MD_ONLY_MANIFEST = `
 version: 1
-methodology: "0.1.0"
+methodology: "${currentMethodology()}"
 targets: [agents-md]
 packages: [karpathy-claude]
 `;
 
 const UNRESOLVABLE_MANIFEST = `
 version: 1
-methodology: "0.1.0"
+methodology: "${currentMethodology()}"
 targets: [claude-code]
 packages: [this-package-does-not-exist]
 `;

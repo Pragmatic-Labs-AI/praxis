@@ -5,11 +5,13 @@
 Agent instruction files rot like documentation — `CLAUDE.md`, `AGENTS.md`,
 rules, skills drift from what the codebase actually does, and nothing catches
 it until an agent acts on stale guidance. **Praxis makes the instruction layer
-versioned, pinned, drift-checked, and CI-gated**, across multiple agent tools,
+version-pinned, drift-checked, and CI-gated**, across multiple agent tools,
 from one neutral source. Other tools generate agent instructions once; Praxis
-manages them the way Renovate/Dependabot manage dependencies — and `praxis
-check` fails your build the moment the installed files stop matching the
-pinned methodology.
+reconciles them the way a linter reconciles code against style rules — and
+`praxis check` fails your build the moment the installed files stop matching
+what the manifest's declared packages would emit, or the moment
+`praxis.yaml`'s pinned methodology version stops matching the installed
+Praxis release.
 
 Praxis is **not** implementation scaffolding and **not** an application config
 generator. It writes _only_ the methodology layer — agent instructions,
@@ -21,12 +23,55 @@ infrastructure.
 npx @pragmatic-labs/praxis
 ```
 
+## Reproducible checks in CI
+
+The bare `npx` above is right for interactive/agent use — it deliberately
+floats to the latest release when no local install exists. **CI needs the
+opposite: a pinned CLI, not a floating one.** A bare `npx` in a CI job
+resolves through npx's own cache, so a cold-cache runner can silently re-run
+against whatever is `latest` at that moment, and a warm-cache runner can stay
+stuck on a stale release indefinitely — either way, which binary runs depends
+on runner/registry state, not on anything committed to the repo.
+
+Pin it instead with an exact `devDependency`, a committed lockfile, and
+`npm ci`, invoked via a `package.json` script (or `node_modules/.bin`) —
+never a bare `npx` in CI:
+
+```jsonc
+// package.json
+{
+  "devDependencies": {
+    "@pragmatic-labs/praxis": "0.1.18"   // exact version, no ^ / ~ range
+  },
+  "scripts": {
+    "praxis:check": "praxis check"
+  }
+}
+```
+
+```yaml
+# .github/workflows/ci.yml (excerpt)
+- run: npm ci
+- run: npm run praxis:check
+```
+
+`npm ci` fails loud (before Praxis ever runs) if the committed lockfile
+doesn't match `package.json`; running the installed bin directly never
+touches npx's resolution path at all, so the binary that runs is exactly what
+the lockfile pinned. On top of that, `praxis check`'s own methodology-version
+enforcement means a floating `npx` CI job that used to pass silently starts
+failing loud the moment its resolved CLI drifts from what `praxis.yaml` pins
+— pinning the CLI here makes that failure a real, reproducible finding
+instead of cache/registry noise.
+
 ## Why it's different
 
 - **Versioned, pinned, drift-checked.** Methodology ships as composable
-  packages pinned in a committed `praxis.yaml`. `praxis check` reports drift
-  and exits non-zero, so CI catches an agent instruction file that's been
-  hand-edited out of sync with what's pinned.
+  packages resolved from the exact Praxis release pinned by `praxis.yaml`'s
+  `methodology:` value — a mismatch against the installed release fails loud,
+  in either direction. `praxis check` also reports drift between the repo
+  and what that installed release would emit, and exits non-zero, so CI
+  catches an agent instruction file that's been hand-edited out of sync.
 - **A composition/merge step, not a template stamp.** Installing or syncing
   methodology folds it into an _existing_ project without clobbering your own
   content: an edit inside a managed block is treated as a conflict to
@@ -80,7 +125,7 @@ sync`**. There is no `add`/`remove` — one obvious way to change things.
 ```yaml
 # Edit this, then run `praxis sync`.
 version: 1
-methodology: "0.1.0"                 # pinned; `sync` offers to bump
+methodology: "0.1.0"                 # exact-version pin; mismatch fails check/sync
 stacks: [node, react]                # detection-seeded, user-editable
 targets: [claude-code, codex]        # which agent tools to support
 packages:
@@ -92,7 +137,9 @@ packages:
 
 New methodology only reaches your repo on an explicit `sync` that bumps the
 pinned version — never behind your back. `praxis check` is the read-only
-counterpart: it reports the same drift for CI without writing anything.
+counterpart: it reports the same drift for CI without writing anything, and
+both fail loud — with guidance to update `methodology:` — the moment the
+pinned version and the installed Praxis release disagree.
 
 ## Multi-tool by construction
 

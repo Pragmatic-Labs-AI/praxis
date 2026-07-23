@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applyOp, planEmit } from "../src/emit.js";
 import type { Manifest } from "../src/manifest.js";
 import { type RuleSet, reconcilePermissions } from "../src/merge-json.js";
+import { currentMethodology } from "../test/helpers.js";
 
 /**
  * Conformance: the JSON-aware permission merge upholds the same non-negotiables as
@@ -117,7 +118,7 @@ describe("conformance: JSON permission merge", () => {
   it("permissions + plugins compose into ONE settings.json write in a single sync (no same-file compose bug)", () => {
     const manifest: Manifest = {
       version: 1,
-      methodology: "0.1.0",
+      methodology: currentMethodology(),
       targets: ["claude-code"],
       packages: ["safe-permissions", "ponytail"],
     };

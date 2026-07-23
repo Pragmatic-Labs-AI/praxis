@@ -1,6 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, join } from "node:path";
 import { cancel, confirm, intro, isCancel, multiselect, note, outro, select, updateSettings } from "@clack/prompts";
 import { Command } from "commander";
 import { checkAnchors, type AnchorCheckReport } from "./anchors.js";
@@ -24,9 +23,11 @@ import {
   type Target,
   type Workspace,
 } from "./manifest.js";
+import { MethodologyUpgradeAvailableError, resolveMethodology, setMethodologyInYaml } from "./methodology.js";
 import { availablePackages } from "./packages.js";
 import { checkSharedInstructions, type SharedInstructionReport } from "./shared-instructions.js";
 import { applyManifest, runSync, type FileReport, type SyncReport } from "./sync.js";
+import { praxisVersion } from "./version.js";
 
 /**
  * The CLI surface (docs/wiki/interaction-model.md). `init` is the minimal first-run
@@ -151,17 +152,11 @@ function formatWorkspaceReport(report: WorkspaceReport): string {
 
 // --- sync / check ---------------------------------------------------------
 
-/** This CLI's own version, read from its shipped package.json (falls back to "unknown"). */
-export function praxisVersion(): string {
-  try {
-    const pkgPath = join(dirname(fileURLToPath(import.meta.url)), "..", "package.json");
-    const pkg: unknown = JSON.parse(readFileSync(pkgPath, "utf8"));
-    const version = (pkg as { version?: unknown }).version;
-    return typeof version === "string" ? version : "unknown";
-  } catch {
-    return "unknown";
-  }
-}
+// Re-exported (not just imported) so existing call sites — this module's own
+// `.version()` CLI wiring below and any external importer — are unaffected by
+// the hoist into its own module (A1): one reader, shared by the CLI surface
+// and the methodology resolver (src/methodology.ts).
+export { praxisVersion };
 
 export interface ReconcileResult {
   version: string;
@@ -263,8 +258,8 @@ export function reconcile(cwd: string, write: boolean, mode: "sync" | "check"): 
   };
 }
 
-function runReconcile(write: boolean, mode: "sync" | "check"): void {
-  const result = reconcile(process.cwd(), write, mode);
+function runReconcile(write: boolean, mode: "sync" | "check", cwd: string = process.cwd()): ReconcileResult {
+  const result = reconcile(cwd, write, mode);
 
   // Surface the running version in check output so a stale npx-cached build is
   // visible instead of silently under-reporting (D40).
@@ -304,6 +299,98 @@ function runReconcile(write: boolean, mode: "sync" | "check"): void {
   if (result.workspaceReport) console.log(formatWorkspaceReport(result.workspaceReport));
 
   if (result.exitCode !== 0) process.exitCode = result.exitCode;
+  return result;
+}
+
+/** A real interactive terminal on both ends — the gate for offering the
+ *  methodology confirm-to-bump below. A piped/CI/non-TTY invocation (or an
+ *  explicit `--yes`) must never prompt (D6 "never behind the user's back"). */
+function isInteractiveTerminal(): boolean {
+  return Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY);
+}
+
+/** A confirmed bump actually wrote `praxis.yaml` — carries what's needed to
+ *  restore it verbatim if the reconcile that's supposed to accompany it fails
+ *  (D59 "one confirmed action": the pin bump and the content apply must land,
+ *  or roll back, together). */
+interface BumpRollback {
+  manifestPath: string;
+  originalText: string;
+}
+
+interface BumpOutcome {
+  outcome: "proceed" | "declined";
+  rollback?: BumpRollback;
+}
+
+/**
+ * Interactive-`sync`-only (D59/D62): when the running CLI is newer than the
+ * pinned `methodology:` (`MethodologyUpgradeAvailableError`), offer a confirm
+ * to bump `praxis.yaml` to the running version before the normal sync
+ * applies. Every other outcome — methodology already resolves, the manifest
+ * can't even be loaded, or it's the always-hard-fail `MethodologyIncompatibleError`
+ * case — returns "proceed" and defers entirely to the normal `reconcile()`
+ * pipeline below, which re-loads `praxis.yaml` from disk itself and reports
+ * the same way it always has (no duplicated error handling here).
+ *
+ * Declining leaves `praxis.yaml` byte-identical and writes nothing else —
+ * the caller must not proceed to `reconcile()` on "declined".
+ *
+ * A confirmed bump is a targeted text edit (`setMethodologyInYaml`,
+ * src/methodology.ts), never a `renderManifestYaml` re-render — that would
+ * silently rebuild the whole file canonically and destroy a hand-edited
+ * `praxis.yaml`'s comments, block-style `packages:`, or custom quoting.
+ */
+async function offerMethodologyBump(cwd: string): Promise<BumpOutcome> {
+  const manifestPath = join(cwd, "praxis.yaml");
+  let manifest: Manifest;
+  try {
+    manifest = loadManifest(manifestPath);
+  } catch {
+    return { outcome: "proceed" };
+  }
+
+  const running = praxisVersion();
+  try {
+    resolveMethodology(manifest.methodology, running);
+    return { outcome: "proceed" }; // equal — nothing to offer
+  } catch (err) {
+    if (!(err instanceof MethodologyUpgradeAvailableError)) return { outcome: "proceed" }; // hard fail: let reconcile() report it
+
+    const shouldBump = await confirm({
+      message: `Newer methodology ${running} available (pinned ${manifest.methodology}). Bump praxis.yaml and apply?`,
+    });
+    if (isCancel(shouldBump) || !shouldBump) return { outcome: "declined" };
+
+    const originalText = readFileSync(manifestPath, "utf8");
+    writeFileSync(manifestPath, setMethodologyInYaml(originalText, running), "utf8");
+    return { outcome: "proceed", rollback: { manifestPath, originalText } };
+  }
+}
+
+/** `sync`'s CLI action. `--yes` and any non-interactive invocation keep the
+ *  pre-existing fail-loud behavior untouched (never prompt); only a real
+ *  interactive TTY sync offers the methodology confirm-to-bump above. */
+export async function runSyncAction(opts: { yes?: boolean }, cwd: string = process.cwd()): Promise<void> {
+  let rollback: BumpRollback | undefined;
+
+  if (!opts.yes && isInteractiveTerminal()) {
+    const bump = await offerMethodologyBump(cwd);
+    if (bump.outcome === "declined") {
+      cancel("No changes made.");
+      return;
+    }
+    rollback = bump.rollback;
+  }
+
+  const result = runReconcile(true, "sync", cwd);
+  if (rollback && result.exitCode !== 0) {
+    // The confirmed bump and the content apply are one action (D59): if the
+    // apply that was supposed to accompany the bump failed, the pin must not
+    // be left bumped on its own — restore praxis.yaml to what it was before
+    // the confirm, byte-for-byte.
+    writeFileSync(rollback.manifestPath, rollback.originalText, "utf8");
+  }
 }
 
 // --- init -----------------------------------------------------------------
@@ -576,12 +663,15 @@ export function buildProgram(): Command {
   program
     .command("sync")
     .description("Reconcile the repo to praxis.yaml; write managed methodology files.")
-    .action(() => runReconcile(true, "sync"));
+    .option("-y, --yes", "skip the interactive methodology-bump confirm; fail loud on a stale pin instead")
+    .action((opts: { yes?: boolean }) => runSyncAction(opts));
 
   program
     .command("check")
     .description("Report drift without writing; non-zero exit on drift.")
-    .action(() => runReconcile(false, "check"));
+    .action(() => {
+      runReconcile(false, "check");
+    });
 
   return program;
 }

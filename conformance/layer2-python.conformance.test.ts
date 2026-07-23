@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { planEmit } from "../src/emit.js";
 import type { Manifest } from "../src/manifest.js";
 import { resolve, type ResolvedPackage } from "../src/packages.js";
+import { currentMethodology } from "../test/helpers.js";
 
 /**
  * Conformance: the Python Layer 2 stack (`python-backend`) follows the same
@@ -17,7 +18,7 @@ function manifest(
   targets: Manifest["targets"],
   stacks?: Manifest["stacks"],
 ): Manifest {
-  return { version: 1, methodology: "0.1.0", targets, packages, ...(stacks ? { stacks } : {}) };
+  return { version: 1, methodology: currentMethodology(), targets, packages, ...(stacks ? { stacks } : {}) };
 }
 
 function pkg(name: string, extra: Partial<ResolvedPackage> = {}): ResolvedPackage {

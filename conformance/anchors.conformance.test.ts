@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { reconcile } from "../src/program.js";
+import { currentMethodology } from "../test/helpers.js";
 
 /**
  * Conformance: the knowledge-anchor tripwire (D26/D27) must fire in `check` mode
@@ -33,7 +34,7 @@ function repoWithUnresolvableManifest(): string {
     join(dir, "praxis.yaml"),
     [
       "version: 1",
-      'methodology: "0.1.0"',
+      `methodology: "${currentMethodology()}"`,
       "targets: [claude-code]",
       "packages: [this-package-does-not-exist]",
       "",

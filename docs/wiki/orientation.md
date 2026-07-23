@@ -31,14 +31,15 @@ Praxis written in TypeScript ≠ the stacks its Layer 2 recipes *target*
 
 **The differentiated core is the gate + distribution machinery** (canonical
 statement — other pages link here rather than restating it): methodology
-shipped as **versioned, pinned packages** (D4/D6), folded into an *existing*
-project by a **composition/merge** step that never clobbers project content
-([merge-engine](merge-engine.md)), emitted **per-tool from one neutral source**
-([emitters](emitters.md)), and kept honest by a **drift-checking CI gate**
-(`praxis check`, D26/D27). Instruction *content* is the most commoditized part
-of the landscape (community rulesets, native agent memory, plugin
-marketplaces); versioned, drift-checked, multi-tool instruction *management*
-has no incumbent.
+shipped as **versioned, pinned packages** (D4/D6, D59), folded into an
+*existing* project by a **composition/merge** step that never clobbers project
+content ([merge-engine](merge-engine.md)), emitted **per-tool from one neutral
+source** ([emitters](emitters.md)), and kept honest by a **drift-checking CI
+gate** (`praxis check`, D26/D27). Instruction *content* is the most
+commoditized part of the landscape (community rulesets, native agent memory,
+plugin marketplaces); versioned, drift-checked, multi-tool instruction
+*management* has no incumbent — genuine version pinning is enforced (D59),
+not merely recorded.
 
 The curated content — Layer 1 behavioral rules + Layer 2 stack recipes
 ([packages-and-emit](packages-and-emit.md)) — is the **payload** that rides
@@ -64,7 +65,7 @@ touches what Praxis writes.
 | The non-negotiable rails (what you must/must not do) | `AGENTS.md` (Codex/generic) and `CLAUDE.md` (Claude Code) |
 | The structure and the *why* behind every design choice | Start at [index](index.md); `docs/ARCHITECTURE.md` is now a thin redirect here |
 | The load-bearing decisions grouped by theme (overview) | [decisions](decisions.md) "Decision digest" |
-| The full decision history (D1–D58, with status) | [decisions](decisions.md) |
+| The full decision history (D1–D61, with status) | [decisions](decisions.md) |
 | Build/test/run + conventions | The shared "Working in this repo" section in `CLAUDE.md` / `AGENTS.md`, or [workflows](workflows.md) |
 | Standing behavioral reminders loaded every session | `.claude/rules/praxis-*.md` or managed `AGENTS.md` blocks |
 

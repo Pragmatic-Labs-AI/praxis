@@ -1,8 +1,18 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmdirSync, unlinkSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmdirSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { randomBytes } from "node:crypto";
+import { basename, dirname, join } from "node:path";
 import { applyOp, BLOCK_FILE, planEmit, type EmitOp } from "./emit.js";
 import { loadManifest, type Manifest } from "./manifest.js";
-import { blockStatus, findBlocks } from "./merge.js";
+import { blockStatus, findBlocks, hashContent } from "./merge.js";
 import { reconcileCodexConfig } from "./codex-security.js";
 import {
   CODEX_MARKETPLACE_PATH,
@@ -24,6 +34,17 @@ import { resolveContained } from "./path-safety.js";
  * prefix; the `<!-- praxis:begin <id> -->` block markers), so prune is simply
  * (on-disk Praxis-owned set) − (manifest-implied set), previewed the same way as
  * any other change and applied only in write mode.
+ *
+ * **Recoverable sync (D61):** the five passes below (main op loop, block-orphan
+ * sweep, codex-config reconcile, marketplace prune, owned-file orphans) each
+ * compute their decision — reads and reconciliation — exactly as before,
+ * read-only. Instead of writing/deleting as they go, every pass appends to one
+ * ordered `mutations` list. Once all five passes have run (**plan**, unchanged
+ * decision logic), `commitMutations` stages every write to a sibling temp file,
+ * verifies it by hash, and only then performs the actual renames/unlinks — one
+ * commit boundary spanning all five passes, not just the first. A failure
+ * before commit leaves every destination untouched; a failure during commit
+ * converges on the next `sync` (D10/D12 preserved — see docs/wiki/decisions.md D61).
  */
 
 export type FileStatus = "created" | "updated" | "unchanged" | "deleted";
@@ -31,7 +52,9 @@ export type FileStatus = "created" | "updated" | "unchanged" | "deleted";
 export interface FileReport {
   path: string;
   status: FileStatus;
-  /** Block ids the user edited; left untouched and surfaced for resolution. */
+  /** Block ids the user edited; left untouched and surfaced for resolution.
+   *  Also carries the synthetic "external-change" marker (D61) when the
+   *  destination changed on disk between plan and commit. */
   conflicts: string[];
   /** Whether this file was written this run (false in check/dry-run mode). */
   written: boolean;
@@ -52,6 +75,25 @@ export interface SyncOptions {
   manifestPath?: string;
 }
 
+/** A staged write or delete failed hash verification, or every mutation could
+ *  not be staged. Thrown before any destination file is touched (D61) — the
+ *  repo is left byte-identical to its pre-sync state. */
+export class SyncStagingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SyncStagingError";
+  }
+}
+
+/** One planned filesystem transition, computed read-only during the plan phase
+ *  and executed only in `commitMutations` (D61). `report` is the exact
+ *  `FileReport` already pushed to the caller's `files` array — commit patches
+ *  it in place once the mutation's real outcome (committed, or refused as an
+ *  external-change conflict) is known. */
+type Mutation =
+  | { action: "write"; path: string; abs: string; content: string; existingHash: string | undefined; report: FileReport }
+  | { action: "delete"; path: string; abs: string; existingHash: string | undefined; report: FileReport; cleanup?: () => void };
+
 export function runSync(opts: SyncOptions): SyncReport {
   const manifestPath = opts.manifestPath ?? join(opts.cwd, "praxis.yaml");
   return applyManifest(loadManifest(manifestPath), opts.cwd, opts.write);
@@ -66,6 +108,7 @@ export function applyManifest(manifest: Manifest, cwd: string, write: boolean): 
   const ops = planEmit(manifest, cwd);
 
   const files: FileReport[] = [];
+  const mutations: Mutation[] = [];
   const handledPaths = new Set<string>();
   for (const op of ops) {
     handledPaths.add(op.path);
@@ -82,12 +125,18 @@ export function applyManifest(manifest: Manifest, cwd: string, write: boolean): 
       ]) {
         const existed = existsSync(output.abs);
         const status: FileStatus = !existed ? "created" : output.changed ? "updated" : "unchanged";
-        const written = write && output.changed;
-        if (written) {
-          mkdirSync(dirname(output.abs), { recursive: true });
-          writeFileSync(output.abs, output.text, "utf8");
+        const report: FileReport = { path: output.path, status, conflicts: output.conflicts, written: false };
+        files.push(report);
+        if (write && output.changed) {
+          mutations.push({
+            action: "write",
+            path: output.path,
+            abs: output.abs,
+            content: output.text,
+            existingHash: existed ? hashContent(output.existing) : undefined,
+            report,
+          });
         }
-        files.push({ path: output.path, status, conflicts: output.conflicts, written });
       }
       continue;
     }
@@ -112,15 +161,21 @@ export function applyManifest(manifest: Manifest, cwd: string, write: boolean): 
 
     const status: FileStatus = existing === undefined ? "created" : changed ? "updated" : "unchanged";
 
-    // Write safe changes only: never in check mode, never a pure no-op. `text`
-    // already preserves any conflicted block, so writing it honors D10.
-    const written = write && (status === "created" || status === "updated");
-    if (written) {
-      mkdirSync(dirname(abs), { recursive: true });
-      writeFileSync(abs, text, "utf8");
+    // Stage safe changes only: never in check mode, never a pure no-op. `text`
+    // already preserves any conflicted block, so staging it honors D10.
+    const wouldWrite = status === "created" || status === "updated";
+    const report: FileReport = { path: op.path, status, conflicts, written: false };
+    files.push(report);
+    if (write && wouldWrite) {
+      mutations.push({
+        action: "write",
+        path: op.path,
+        abs,
+        content: text,
+        existingHash: existing !== undefined ? hashContent(existing) : undefined,
+        report,
+      });
     }
-
-    files.push({ path: op.path, status, conflicts, written });
   }
 
   // Block orphans in a file the manifest no longer emits ANY block for (e.g. the
@@ -135,15 +190,23 @@ export function applyManifest(manifest: Manifest, cwd: string, write: boolean): 
     const pruned = pruneOrphanBlocks(existing, new Set());
     if (!pruned.changed && pruned.conflicts.length === 0) continue;
 
-    const written = write && pruned.changed;
-    if (written) writeFileSync(abs, pruned.text, "utf8");
-
-    files.push({
+    const report: FileReport = {
       path,
       status: pruned.changed ? "updated" : "unchanged",
       conflicts: pruned.conflicts,
-      written,
-    });
+      written: false,
+    };
+    files.push(report);
+    if (write && pruned.changed) {
+      mutations.push({
+        action: "write",
+        path,
+        abs,
+        content: pruned.text,
+        existingHash: hashContent(existing),
+        report,
+      });
+    }
   }
 
   // A removed Codex permissions package/target removes only Praxis's protected
@@ -155,14 +218,23 @@ export function applyManifest(manifest: Manifest, cwd: string, write: boolean): 
     if (existing !== undefined) {
       const result = reconcileCodexConfig(existing, false);
       if (result.changed || result.conflicts.length > 0) {
-        const written = write && result.changed;
-        if (written) writeFileSync(abs, result.text, "utf8");
-        files.push({
+        const report: FileReport = {
           path: codexConfigPath,
           status: result.changed ? "updated" : "unchanged",
           conflicts: result.conflicts,
-          written,
-        });
+          written: false,
+        };
+        files.push(report);
+        if (write && result.changed) {
+          mutations.push({
+            action: "write",
+            path: codexConfigPath,
+            abs,
+            content: result.text,
+            existingHash: hashContent(existing),
+            report,
+          });
+        }
       }
     }
   }
@@ -178,25 +250,37 @@ export function applyManifest(manifest: Manifest, cwd: string, write: boolean): 
     if (marketplaceExisting !== undefined && stateExisting !== undefined) {
       const result = reconcileCodexMarketplace(marketplaceExisting, stateExisting, []);
       for (const output of [
-        { path: CODEX_MARKETPLACE_PATH, abs: marketplaceAbs, text: result.marketplaceText, changed: result.marketplaceChanged, conflicts: result.conflicts },
-        { path: CODEX_MARKETPLACE_STATE_PATH, abs: stateAbs, text: result.stateText, changed: result.stateChanged, conflicts: [] },
+        { path: CODEX_MARKETPLACE_PATH, abs: marketplaceAbs, existing: marketplaceExisting, text: result.marketplaceText, changed: result.marketplaceChanged, conflicts: result.conflicts },
+        { path: CODEX_MARKETPLACE_STATE_PATH, abs: stateAbs, existing: stateExisting, text: result.stateText, changed: result.stateChanged, conflicts: [] },
       ]) {
         if (!output.changed && output.conflicts.length === 0) continue;
-        const written = write && output.changed;
-        if (written) writeFileSync(output.abs, output.text, "utf8");
-        files.push({
+        const report: FileReport = {
           path: output.path,
           status: output.changed ? "updated" : "unchanged",
           conflicts: output.conflicts,
-          written,
-        });
+          written: false,
+        };
+        files.push(report);
+        if (write && output.changed) {
+          mutations.push({
+            action: "write",
+            path: output.path,
+            abs: output.abs,
+            content: output.text,
+            existingHash: hashContent(output.existing),
+            report,
+          });
+        }
       }
     } else if (stateExisting !== undefined) {
       // marketplace.json is gone (hand-deleted or never re-created) but the
       // Praxis-owned sidecar remains — it now describes nothing and would
       // otherwise orphan forever. Prune it (D46: manifest expresses absence).
-      if (write) unlinkSync(stateAbs);
-      files.push({ path: CODEX_MARKETPLACE_STATE_PATH, status: "deleted", conflicts: [], written: write });
+      const report: FileReport = { path: CODEX_MARKETPLACE_STATE_PATH, status: "deleted", conflicts: [], written: false };
+      files.push(report);
+      if (write) {
+        mutations.push({ action: "delete", path: CODEX_MARKETPLACE_STATE_PATH, abs: stateAbs, existingHash: hashContent(stateExisting), report });
+      }
     }
   }
 
@@ -209,20 +293,154 @@ export function applyManifest(manifest: Manifest, cwd: string, write: boolean): 
     ops.filter((op): op is Extract<EmitOp, { kind: "owned" }> => op.kind === "owned").map((op) => op.path),
   );
   for (const path of findOwnedOrphans(cwd, impliedOwnedPaths)) {
+    const abs = resolveContained(cwd, path, "owned file to prune");
+    const existing = readFileIfExists(abs);
+    const report: FileReport = { path, status: "deleted", conflicts: [], written: false };
+    files.push(report);
     if (write) {
-      const abs = resolveContained(cwd, path, "owned file to prune");
-      unlinkSync(abs);
-      const parent = dirname(abs);
-      if (path.startsWith(".agents/skills/") && readdirSync(parent).length === 0) rmdirSync(parent);
+      mutations.push({
+        action: "delete",
+        path,
+        abs,
+        existingHash: existing !== undefined ? hashContent(existing) : undefined,
+        report,
+        cleanup: () => {
+          const parent = dirname(abs);
+          if (path.startsWith(".agents/skills/") && existsSync(parent) && readdirSync(parent).length === 0) rmdirSync(parent);
+        },
+      });
     }
-    files.push({ path, status: "deleted", conflicts: [], written: write });
   }
+
+  if (write && mutations.length > 0) commitMutations(mutations);
 
   return {
     files,
     changed: files.some((f) => f.status !== "unchanged"),
     hasConflicts: files.some((f) => f.conflicts.length > 0),
   };
+}
+
+/**
+ * The single commit boundary (D61), spanning all five passes' mutations:
+ *
+ * 1. **Stage** — every "write" is written to a temp file
+ *    (`.praxis-tmp-<name>-<random>`) in the nearest already-existing ancestor
+ *    of the destination's directory (`nearestExistingDir` below) — never a
+ *    directory staging itself creates, so an abort before commit leaves zero
+ *    new directories, not just zero new files. A freshly `mkdir`'d directory
+ *    is always on its parent's filesystem/device, so the commit-phase rename
+ *    out of that ancestor stays same-filesystem/atomic once the real
+ *    destination directory is created in the commit phase below. The temp
+ *    path is recorded for cleanup *before* the write itself is attempted, so
+ *    a write that throws after partially (or fully) landing its bytes still
+ *    gets swept up by the `finally` cleanup below.
+ * 2. **Verify** — each staged temp is re-read and hashed against the intended
+ *    content (mirrors the hashing `merge.ts` `hashContent` already does for
+ *    block markers). Any mismatch deletes every staged temp and throws —
+ *    no destination path has been opened for writing yet.
+ * 3. **Commit** — only after every mutation is staged and verified:
+ *    `renameSync`/`unlinkSync` in plan order. Immediately before each
+ *    write's rename, its destination directory is created (`mkdirSync`,
+ *    recursive) — the first point at which staging a "write" mutation may
+ *    create a directory. Immediately before that, the destination is
+ *    re-hashed against what plan time saw: a destination that existed at plan
+ *    time must still match that hash; a destination that was *absent* at plan
+ *    time must still be absent. Either mismatch means something else changed
+ *    it since sync started reading — refuse to overwrite it and surface an
+ *    "external-change" conflict (D10's conflict-not-clobber contract,
+ *    generalized to whole-file granularity, including a destination created
+ *    from nothing by a concurrent process) rather than clobbering it.
+ *
+ * A crash between two commit-phase renames is not yet plan-wide atomic (that
+ * is the separable stronger increment — journal + verified backups +
+ * rollback); this increment guarantees only that failure *before* commit is a
+ * no-op, and that a converged re-run after a mid-commit failure lands cleanly.
+ */
+function commitMutations(mutations: Mutation[]): void {
+  const staged: Array<{ mutation: Extract<Mutation, { action: "write" }>; tempPath: string }> = [];
+  try {
+    // STAGE — no destination directory is created here (see above); temp
+    // files land in an already-existing ancestor directory instead.
+    for (const mutation of mutations) {
+      if (mutation.action !== "write") continue;
+      const tempPath = tempPathFor(mutation.abs);
+      staged.push({ mutation, tempPath }); // tracked before the write, not after
+      writeFileSync(tempPath, mutation.content, "utf8");
+    }
+
+    // VERIFY
+    for (const { mutation, tempPath } of staged) {
+      const actual = readFileSync(tempPath, "utf8");
+      if (hashContent(actual) !== hashContent(mutation.content)) {
+        throw new SyncStagingError(
+          `Staged write for "${mutation.path}" failed verification (content hash mismatch after ` +
+            `write-back) — aborting sync before any destination file was touched. Re-run \`praxis sync\`.`,
+        );
+      }
+    }
+
+    // COMMIT — the external-change re-hash covers both directions: existed at
+    // plan time and now differs, or was absent at plan time and now exists.
+    const tempByMutation = new Map(staged.map(({ mutation, tempPath }) => [mutation, tempPath] as const));
+    for (const mutation of mutations) {
+      const onDisk = readFileIfExists(mutation.abs);
+      const onDiskHash = onDisk !== undefined ? hashContent(onDisk) : undefined;
+      const externalChange =
+        mutation.existingHash !== undefined
+          ? onDiskHash !== mutation.existingHash // existed at plan time: must be unchanged
+          : onDisk !== undefined; // absent at plan time: must still be absent
+      if (externalChange) {
+        mutation.report.conflicts.push("external-change");
+        continue;
+      }
+      if (mutation.action === "write") {
+        const tempPath = tempByMutation.get(mutation);
+        if (tempPath === undefined) continue; // unreachable: every write mutation is staged above
+        mkdirSync(dirname(mutation.abs), { recursive: true });
+        renameSync(tempPath, mutation.abs);
+      } else {
+        unlinkSync(mutation.abs);
+        mutation.cleanup?.();
+      }
+      mutation.report.written = true;
+    }
+  } finally {
+    // Leftover `.praxis-tmp-*` cleanup: a temp already renamed no longer exists
+    // at its temp path; one refused by external-change detection, or one staged
+    // before a later mutation aborted the run, still does and must not leak.
+    for (const { tempPath } of staged) {
+      if (existsSync(tempPath)) {
+        try {
+          unlinkSync(tempPath);
+        } catch {
+          // best-effort: an unremovable temp is inert (never emitted, never
+          // counted as owned output — the `.praxis-tmp-` prefix doesn't match
+          // the `praxis-` ownership convention findOwnedOrphans looks for).
+        }
+      }
+    }
+  }
+}
+
+/** Nearest already-existing ancestor of `dir` (inclusive) — a freshly `mkdir`'d
+ *  directory is always created on its parent's filesystem/device, so staging a
+ *  temp file here (rather than in `dir` itself, which may not exist yet)
+ *  keeps the eventual commit-phase rename same-filesystem/atomic without
+ *  staging ever having to create a destination directory. */
+function nearestExistingDir(dir: string): string {
+  let current = dir;
+  for (;;) {
+    if (existsSync(current)) return current;
+    const parent = dirname(current);
+    if (parent === current) return current; // reached the filesystem root
+    current = parent;
+  }
+}
+
+function tempPathFor(destAbs: string): string {
+  const stagingDir = nearestExistingDir(dirname(destAbs));
+  return join(stagingDir, `.praxis-tmp-${basename(destAbs)}-${randomBytes(6).toString("hex")}`);
 }
 
 function readFileIfExists(path: string): string | undefined {

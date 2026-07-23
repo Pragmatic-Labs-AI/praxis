@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { planEmit } from "../src/emit.js";
 import type { Manifest } from "../src/manifest.js";
 import { buildProgram, reconcile } from "../src/program.js";
+import { currentMethodology } from "../test/helpers.js";
 
 /**
  * Conformance: the workspace tier (D53) — a Praxis hub whose `praxis.yaml`
@@ -57,7 +58,7 @@ function tempDir(): string {
  *  `workspace` package plus its transitive `requires` (D21). */
 const WORKSPACE_MANIFEST_YAML = [
   "version: 1",
-  'methodology: "0.1.0"',
+  `methodology: "${currentMethodology()}"`,
   "targets: [claude-code]",
   "packages: [wiki-memory, upkeep, session-handoff, workspace]",
   "workspace:",
@@ -114,7 +115,7 @@ describe("conformance: workspace tier", () => {
   it("makes member-local planning an always-loaded rule for Claude Code and Codex", () => {
     const manifest: Manifest = {
       version: 1,
-      methodology: "0.1.0",
+      methodology: currentMethodology(),
       targets: ["claude-code", "codex"],
       packages: ["wiki-memory", "upkeep", "session-handoff", "workspace"],
       workspace: { members: [{ path: "member-a" }], edges: [] },
@@ -156,7 +157,7 @@ describe("conformance: workspace tier", () => {
   it("falls back to @latest when praxis is unavailable in the hub or a member", () => {
     const manifest: Manifest = {
       version: 1,
-      methodology: "0.1.0",
+      methodology: currentMethodology(),
       targets: ["claude-code", "codex"],
       packages: ["wiki-memory", "upkeep", "session-handoff", "workspace"],
       workspace: { members: [{ path: "member-a" }], edges: [] },
@@ -188,7 +189,7 @@ describe("conformance: workspace tier", () => {
   it("carries member-local planning context into both target workflows", () => {
     const manifest: Manifest = {
       version: 1,
-      methodology: "0.1.0",
+      methodology: currentMethodology(),
       targets: ["claude-code", "codex"],
       packages: ["wiki-memory", "upkeep", "session-handoff", "workspace"],
       workspace: { members: [{ path: "member-a" }], edges: [] },
@@ -221,7 +222,7 @@ describe("conformance: workspace tier", () => {
   it("scopes the planning-entry fan-out to affected cloned members and collapses steps 2-3/5-6", () => {
     const manifest: Manifest = {
       version: 1,
-      methodology: "0.1.0",
+      methodology: currentMethodology(),
       targets: ["claude-code", "codex"],
       packages: ["wiki-memory", "upkeep", "session-handoff", "workspace"],
       workspace: { members: [{ path: "member-a" }], edges: [] },
@@ -263,7 +264,7 @@ describe("conformance: workspace tier", () => {
   it("runs the entire planning-entry pass read-only until the user confirms out of planning", () => {
     const manifest: Manifest = {
       version: 1,
-      methodology: "0.1.0",
+      methodology: currentMethodology(),
       targets: ["claude-code", "codex"],
       packages: ["wiki-memory", "upkeep", "session-handoff", "workspace"],
       workspace: { members: [{ path: "member-a" }], edges: [] },
@@ -298,7 +299,7 @@ describe("conformance: workspace tier", () => {
   it("enumerates a member's native instruction surfaces instead of the unenumerated phrase, in the rule and the workflow", () => {
     const manifest: Manifest = {
       version: 1,
-      methodology: "0.1.0",
+      methodology: currentMethodology(),
       targets: ["claude-code", "codex"],
       packages: ["wiki-memory", "upkeep", "session-handoff", "workspace"],
       workspace: { members: [{ path: "member-a" }], edges: [] },
@@ -401,7 +402,7 @@ describe("conformance: workspace tier", () => {
       join(dir, "praxis.yaml"),
       [
         "version: 1",
-        'methodology: "0.1.0"',
+        `methodology: "${currentMethodology()}"`,
         "targets: [claude-code]",
         "packages: [wiki-memory, upkeep, session-handoff, workspace]",
         "",
@@ -454,7 +455,7 @@ describe("conformance: workspace tier", () => {
       join(dir, "praxis.yaml"),
       [
         "version: 1",
-        'methodology: "0.1.0"',
+        `methodology: "${currentMethodology()}"`,
         "targets: [claude-code]",
         "packages: [this-package-does-not-exist]",
         "workspace:",

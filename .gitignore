@@ -4,6 +4,10 @@ coverage/
 *.log
 .DS_Store
 
+# Transient sync staging files (docs/wiki/decisions.md D61) — always cleaned up
+# in a `finally`; never a Praxis-owned artifact, never emitted or drift-checked.
+.praxis-tmp-*
+
 # Session handoffs are transient local scratch — durable decisions live in
 # docs/ARCHITECTURE.md §11, not here.
 docs/handoffs/

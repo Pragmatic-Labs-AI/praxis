@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import type { Manifest, Target } from "./manifest.js";
 import { reconcile } from "./merge.js";
+import { resolveMethodology } from "./methodology.js";
 import {
   BUCKETS,
   type DesiredSettings,
@@ -13,6 +14,7 @@ import {
 } from "./merge-json.js";
 import { resolvePackages } from "./packages.js";
 import { resolveContained } from "./path-safety.js";
+import { praxisVersion } from "./version.js";
 import { type Capability, loadPolicy, type Policy } from "./permissions.js";
 import { loadPluginsBlock } from "./plugins.js";
 import { reconcileCodexConfig, renderCodexRules } from "./codex-security.js";
@@ -223,6 +225,13 @@ export type EmitOp =
  *  the selected methodology for each target. `cwd` resolves any project-local
  *  (`./`-prefixed) packages the manifest names; defaults to process.cwd(). */
 export function planEmit(manifest: Manifest, cwd: string = process.cwd()): EmitOp[] {
+  // Validate the pinned methodology version up front (A1, docs/wiki/decisions.md
+  // D6/D42): equal is a no-op; a stale pin surfaces as a distinct "upgrade
+  // available" condition `sync` can offer to resolve; a bogus or
+  // ahead-of-the-running-CLI pin fails loudly here, not silently later —
+  // same posture as the package-resolution validation immediately below.
+  resolveMethodology(manifest.methodology, praxisVersion());
+
   // Validate the package set and resolve requires/conflicts up front (D20/D21):
   // an unknown package or unmet dependency fails loudly here, not silently later.
   // "workspace" is derived, never user-declarable in `stacks` (D53): a package
