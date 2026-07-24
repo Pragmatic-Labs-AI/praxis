@@ -23,6 +23,12 @@ infrastructure.
 npx @pragmatic-labs/praxis
 ```
 
+Praxis runs in the current working directory, including Python and other
+non-Node projects. Its npm distribution does **not** make your project an npm
+project: you do not need to add `package.json`, `package-lock.json`, or
+committed `node_modules` merely to use Praxis. Node 22.12+ and npm are still
+host prerequisites because Praxis is a Node CLI.
+
 ## Reproducible checks in CI
 
 The bare `npx` above is right for interactive/agent use — it deliberately
@@ -33,15 +39,17 @@ against whatever is `latest` at that moment, and a warm-cache runner can stay
 stuck on a stale release indefinitely — either way, which binary runs depends
 on runner/registry state, not on anything committed to the repo.
 
-Pin it instead with an exact `devDependency`, a committed lockfile, and
-`npm ci`, invoked via a `package.json` script (or `node_modules/.bin`) —
-never a bare `npx` in CI:
+### Repositories that already use npm
+
+Pin it with an exact `devDependency`, a committed lockfile, and `npm ci`,
+invoked via a `package.json` script (or `node_modules/.bin`) — never a bare
+`npx` in CI:
 
 ```jsonc
 // package.json
 {
   "devDependencies": {
-    "@pragmatic-labs/praxis": "0.1.18"   // exact version, no ^ / ~ range
+    "@pragmatic-labs/praxis": "0.2.0"    // exact version, no ^ / ~ range
   },
   "scripts": {
     "praxis:check": "praxis check"
@@ -63,6 +71,30 @@ enforcement means a floating `npx` CI job that used to pass silently starts
 failing loud the moment its resolved CLI drifts from what `praxis.yaml` pins
 — pinning the CLI here makes that failure a real, reproducible finding
 instead of cache/registry noise.
+
+### Python and other non-Node repositories
+
+Do not add npm project files just for Praxis. Pin the CLI in the command that
+CI runs instead:
+
+```yaml
+# .github/workflows/ci.yml (excerpt)
+- run: >-
+    npm exec --yes
+    --package=@pragmatic-labs/praxis@0.2.0
+    -- praxis check
+```
+
+The package version must be exact and match `praxis.yaml`'s `methodology:`
+value; do not substitute `latest`, a range, or bare `npx` in CI. `npm exec`
+uses npm's cache to run that pinned CLI without installing it into the target
+repository. For interactive developer use, an exact global install is also
+optional:
+
+```bash
+npm install --global @pragmatic-labs/praxis@0.2.0
+praxis check
+```
 
 ## Why it's different
 
