@@ -26,7 +26,7 @@ here.
 | Concern | Choice | Rationale |
 |---|---|---|
 | Language / runtime | TypeScript, Node 22+ (engines `>=22.12.0`, the floor locked `commander@15` requires; Node 20 is EOL) | `npx` distribution; ecosystem for the text work below |
-| Distribution | `npx` bin entry, optional devDependency | Zero-install entry; pinned + CI-runnable when adopted |
+| Distribution | npm CLI (`npx`/`npm exec`), optional devDependency | Zero-install entry; exact `npm exec --package` pin keeps non-Node targets free of npm project files, while npm projects can use a lockfile |
 | CLI parsing | `commander` (small) | Minimal command surface; *simplicity first* |
 | Merge engine | **text-level block splice** (no markdown AST) | Preserves user prose byte-for-byte; see [merge-engine](merge-engine.md) |
 | Manifest validation | `zod` | Validates `praxis.yaml` against the manifest schema |
