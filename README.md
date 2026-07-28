@@ -141,7 +141,7 @@ It always previews a single diff before writing. Git is your undo.
 - **Layer 1 (general, stack-agnostic).** Tool-neutral behavioral rules that
   reduce common LLM coding mistakes, plus methodology-upkeep commands:
   `karpathy-claude`, `wiki-memory`, `session-handoff`, `upkeep`,
-  `instruction-upkeep`, `safe-permissions`.
+  `instruction-upkeep`, `safe-permissions`, `changelog`.
 - **Layer 2 (stack-specific recipes).** Authoring recipes for the stack you're
   on — `node` (`node-recipes`, `node-testing`), `python-backend`
   (`python-backend-recipes`, `python-testing`), and `react`

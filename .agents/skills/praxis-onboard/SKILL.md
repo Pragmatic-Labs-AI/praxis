@@ -74,6 +74,7 @@ anything it cannot infer.
    methodology), then hand off to `$praxis-upkeep`:
 
 - `$praxis-wiki` — Seed the project knowledge wiki — creates docs/wiki/ (index + orientation) so future sessions read instead of re-deriving.
+- `$praxis-changelog` — Record user-visible changes in CHANGELOG.md so consumers see what a release brings and what it asks of them.
 - `$praxis-capture-codebase-patterns` — Capture this team's own coding patterns from an exemplar module into a project-local Praxis package that rides praxis sync.
 
    After the bootstrap actions above complete, run `$praxis-upkeep` to confirm

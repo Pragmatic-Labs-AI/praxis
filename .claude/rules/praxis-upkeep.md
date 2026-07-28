@@ -13,3 +13,8 @@ target-specific guidance; never make one surface import or replace the other.
 Run all three passes through the gate even when only one looks like it has
 work — skipping straight to a sub-skill is the piecemeal use this rule
 prevents.
+
+Praxis itself also goes stale. At the start of work, check whether a newer
+Praxis release exists; if one does, say so and offer `/praxis-upgrade`.
+Never upgrade unprompted, and skip silently when the registry is unreachable —
+an offline session must not be blocked or nagged.

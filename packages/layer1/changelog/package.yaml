@@ -1,0 +1,16 @@
+# Package manifest (docs/wiki/packages-and-emit.md, D62). Ships a standing reminder
+# (rules.md) plus the /praxis-changelog command (commands/changelog.md): keep a
+# consumer-facing CHANGELOG.md recording what each release brings and what it asks
+# of the people upgrading. Distinct audience from its neighbours, which is why it
+# is its own package rather than a section of one (D44/D51): wiki-memory is the
+# project's INTERNAL durable knowledge, session-handoff is TRANSIENT session
+# context, and this is EXTERNAL release communication. Layer 1 / stack- &
+# tool-agnostic; adapts to whatever release process the target project has and
+# hardcodes none of Praxis's own specifics. Opt-in — a repo that ships no releases
+# has nothing to record, so this is deliberately not in the default install set.
+name: changelog
+layer: layer1
+provides: [rules, commands]
+onboarding:
+  command: praxis-changelog
+  summary: "Record user-visible changes in CHANGELOG.md so consumers see what a release brings and what it asks of them."

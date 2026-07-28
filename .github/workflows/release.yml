@@ -18,6 +18,10 @@ name: Release
 #   5. `npm publish` with no token — trusted publishing exchanges this job's
 #      OIDC identity for a short-lived publish credential, and npm attaches
 #      a provenance attestation automatically.
+#   6. A separate `github-release` job then publishes the GitHub Release,
+#      with the CHANGELOG section for this version as its body. It runs only
+#      after a successful publish, so the releases page can never advertise
+#      a version that is not on the registry.
 #
 # FIRST-PUBLISH BOOTSTRAP (D58): npm can only bind a trusted publisher to a
 # package that already exists on the registry, so the org scope's very first
@@ -29,18 +33,20 @@ name: Release
 # allowed action and that package.json's `repository.url` exactly match the
 # GitHub repo.
 #
-# This workflow is inert until the console-side setup below exists:
-#   1. npmjs.com -> package settings -> Trusted Publisher -> bind this repo
-#      + this workflow file (`.github/workflows/release.yml`) + the
-#      `release` environment as a trusted GitHub Actions publisher.
-#   2. GitHub repo -> Settings -> Environments -> create `release`, add at
-#      least one required reviewer, and (recommended) restrict it to the
-#      `v*` tag pattern under deployment branches/tags.
-#   3. npmjs.com -> account/package settings -> require 2FA for publishing
-#      and disable classic tokens for this package where possible.
-# Until all three exist, a tag push cannot publish: the `release`
-# environment has no reviewers/protection configured yet, and there is no
-# npm token fallback for the job to use instead.
+# CONSOLE-SIDE SETUP IS LIVE. This workflow was authored inert, pending an
+# npm trusted-publisher binding and a protected `release` environment. Both
+# now exist and the path is proven end to end: this workflow published
+# v0.1.18 (2026-07-19) and v0.2.0 (2026-07-23), and 0.2.0 on the registry
+# carries an SLSA provenance attestation — which only trusted publishing
+# produces. A tag push does publish; treat it accordingly.
+#
+# Still worth keeping in view when the binding is ever re-created:
+#   1. npmjs.com -> package settings -> Trusted Publisher must name this
+#      repo, this workflow file, and the `release` environment.
+#   2. The `release` environment's reviewers are the human gate on a tag
+#      push; restricting it to the `v*` tag pattern is recommended.
+#   3. Require 2FA for publishing and disable classic tokens for this
+#      package where possible — there is no token fallback here by design.
 #
 # npm version requirement verified against
 # https://docs.npmjs.com/trusted-publishers/ at authoring time: "Trusted
@@ -88,6 +94,22 @@ jobs:
           fi
           echo "tag $TAG matches package.json version $PKG_VERSION"
 
+      # The `changelog` package ships the practice; this gate makes it real for
+      # Praxis itself — a release without published upgrade guidance is exactly
+      # what left 0.2.0 undocumented (docs/wiki/decisions.md D62).
+      - name: Verify CHANGELOG has an entry for this version
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if ! grep -qE "^## \[?${VERSION}\]?( |$|\s*-)" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$VERSION]' section — every release states what it brings and what it asks of consumers"
+            exit 1
+          fi
+          if ! awk "/^## \[?${VERSION}\]?( |$|\\s*-)/{f=1;next} /^## /{f=0} f" CHANGELOG.md | grep -qi '^### Upgrading'; then
+            echo "::error::CHANGELOG.md section for $VERSION has no '### Upgrading' note — state the prerequisite, or say explicitly that there is none"
+            exit 1
+          fi
+          echo "CHANGELOG.md documents $VERSION, including an Upgrading note"
+
       # Lets conformance/codex.conformance.test.ts validate emitted Codex
       # rules against the real tool instead of skipping (Tool-neutral rail).
       - run: npm install -g @openai/codex@0.144.6
@@ -106,6 +128,7 @@ jobs:
             const [pkg] = JSON.parse(out);
             const allowedDirs = ["dist/", "packages/"];
             const allowedFiles = new Set([
+              "CHANGELOG.md",
               "NOTICE",
               "npm-shrinkwrap.json",
               "package.json",
@@ -129,3 +152,50 @@ jobs:
       # attached automatically under trusted publishing (per the docs
       # verified above); no --provenance flag is required.
       - run: npm publish
+
+  # A published npm version used to leave no trace on GitHub: the tag existed,
+  # the package shipped, and the releases page still advertised the previous
+  # version as "Latest" (v0.2.0 shipped to npm on 2026-07-23 while the page
+  # showed v0.1.18). This job closes that gap.
+  #
+  # Separate job, not a step in `publish`, so least privilege holds: creating a
+  # release needs `contents: write`, which the publish job deliberately does not
+  # have — and this job deliberately has no `id-token: write`, so the OIDC
+  # publishing identity stays confined to the job that publishes.
+  #
+  # `needs: publish` means a failed publish creates no release, so the releases
+  # page can never advertise a version that is not on the registry.
+  github-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The release body is the CHANGELOG section for this version — the same
+      # section the publish job already required to exist, so the notes cannot
+      # drift from the changelog. Version comes from the tag rather than
+      # package.json because publish has already proven the two are equal.
+      - name: Extract this version's changelog section
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[?" v "\\]?( |$|[[:space:]]*-)" {f=1; next}
+            /^## / {f=0}
+            f
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "::error::no CHANGELOG.md section found for $VERSION — cannot write release notes"
+            exit 1
+          fi
+          echo "extracted $(wc -l < release-notes.md) lines of notes for $VERSION"
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            --verify-tag

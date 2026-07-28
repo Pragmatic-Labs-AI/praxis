@@ -1,7 +1,7 @@
 <!-- praxis:shared-project begin -->
 # Praxis
 
-**Status:** the methodology harness plus first-class Claude Code and OpenAI Codex targets (and the generic `agents-md` convention) are on `main`. Latest: **methodology-pin hardening** (D59/D60/D61) — `methodology:` in `praxis.yaml` is now resolved and enforced against the running CLI's own version (exact-match, fail-loud in either direction — a stale pin or a stale CLI both error with guidance to reconcile them); `praxis init` stamps the running version at scaffold time and the old `METHODOLOGY_VERSION` constant is retired, and interactive `sync` now offers a confirm-to-bump prompt on an upgrade-available pin (`check`/`sync --yes`/non-interactive still fail loud, never prompting); `README.md` documents a reproducible consumer-CI pin (exact devDependency + lockfile + `npm ci` + bin invocation, never a bare `npx`, docs-only, no source change); and `sync` writes through a plan → stage → verify → commit boundary spanning all five passes (main ops, block-orphan sweep, Codex-config reconcile, marketplace prune, owned-file orphans) with external-change detection, so pre-commit failures are no-ops and mid-commit failures converge on re-run (a durable rollback journal remains deferred). Earlier: **launch prep** (D58) — the in-repo half of the org migration: the package is now **`@pragmatic-labs/praxis`** (0.1.17, same 0.x line), the Node floor is `>=22.12.0` (CI on Node 22), the public-snapshot builder emits a signed-off `main` root commit under a pinned public identity, the boundary sweep is genuinely case-insensitive and offline-safe, and the one-time npm first-publish bootstrap is recorded (trusted publishing binds only to an already-existing package); **OSS-launch hardening** — consumer-repo path/symlink containment and full-SHA-pinned plugin sources (D54/D55), plus the public-boundary pipeline and the release boundary (D56/D57); the **workspace tier** (D53); **project-local packages** (D49). Praxis remains an npx-publishable TypeScript/Node CLI; see `docs/wiki/decisions.md` for the decision ledger and `docs/wiki/index.md` for the durable project map.
+**Status:** the methodology harness plus first-class Claude Code and OpenAI Codex targets (and the generic `agents-md` convention) are on `main`. Latest: **release communication as methodology** (D62) — release notes stop being a thing this repo forgot and become a shipped practice: the opt-in `changelog` package (rules + `/praxis-changelog`) records user-visible changes in a `CHANGELOG.md` whose every released version carries an `Upgrading` note, and `/praxis-upgrade` (shipped in `upkeep`, whose rule now asks the agent to check for a newer release at start of work) reads that note before moving the CLI pin and `praxis.yaml`'s `methodology:` pin together — instructions-only, no new CLI surface, since D12 puts the registry check in the ambient agent and D59's both-directions enforcement makes a half-done upgrade impossible to miss; `release.yml` now fails a release whose version lacks a changelog section or an `Upgrading` note, and `CHANGELOG.md` ships in the npm tarball. Previously: **methodology-pin hardening** (D59/D60/D61) — `methodology:` in `praxis.yaml` is now resolved and enforced against the running CLI's own version (exact-match, fail-loud in either direction — a stale pin or a stale CLI both error with guidance to reconcile them); `praxis init` stamps the running version at scaffold time and the old `METHODOLOGY_VERSION` constant is retired, and interactive `sync` now offers a confirm-to-bump prompt on an upgrade-available pin (`check`/`sync --yes`/non-interactive still fail loud, never prompting); `README.md` documents a reproducible consumer-CI pin (exact devDependency + lockfile + `npm ci` + bin invocation, never a bare `npx`, docs-only, no source change); and `sync` writes through a plan → stage → verify → commit boundary spanning all five passes (main ops, block-orphan sweep, Codex-config reconcile, marketplace prune, owned-file orphans) with external-change detection, so pre-commit failures are no-ops and mid-commit failures converge on re-run (a durable rollback journal remains deferred). Earlier: **launch prep** (D58) — the in-repo half of the org migration: the package is now **`@pragmatic-labs/praxis`** (0.1.17, same 0.x line), the Node floor is `>=22.12.0` (CI on Node 22), the public-snapshot builder emits a signed-off `main` root commit under a pinned public identity, the boundary sweep is genuinely case-insensitive and offline-safe, and the one-time npm first-publish bootstrap is recorded (trusted publishing binds only to an already-existing package); **OSS-launch hardening** — consumer-repo path/symlink containment and full-SHA-pinned plugin sources (D54/D55), plus the public-boundary pipeline and the release boundary (D56/D57); the **workspace tier** (D53); **project-local packages** (D49). Praxis remains an npx-publishable TypeScript/Node CLI; see `docs/wiki/decisions.md` for the decision ledger and `docs/wiki/index.md` for the durable project map.
 
 Praxis installs a **methodology layer** into a codebase: durable behavioral rules, authoring recipes, native workflows, and tool-specific methodology configuration for AI coding agents. It is not application scaffolding and never installs target-project runtime infrastructure.
 
@@ -111,7 +111,7 @@ When reconciling the methodology layer after a change, enter through
 pass (e.g. first-run bootstrap).
 <!-- praxis:end wiki-memory -->
 
-<!-- praxis:begin upkeep sha256=2a25651aae8b91285c901b519fe24734902294ece974d4c56aff6133315bec61 (managed by praxis - edit praxis.yaml then run: praxis sync) -->
+<!-- praxis:begin upkeep sha256=ed4028e6a11140db934c3787e2d27bc56c35fed605e1c190f171de0a625cce36 (managed by praxis - edit praxis.yaml then run: praxis sync) -->
 ## Upkeep
 
 The methodology layer (instructions, wiki, emitted agent files) drifts
@@ -127,6 +127,11 @@ target-specific guidance; never make one surface import or replace the other.
 Run all three passes through the gate even when only one looks like it has
 work — skipping straight to a sub-skill is the piecemeal use this rule
 prevents.
+
+Praxis itself also goes stale. At the start of work, check whether a newer
+Praxis release exists; if one does, say so and offer `$praxis-upgrade`.
+Never upgrade unprompted, and skip silently when the registry is unreachable —
+an offline session must not be blocked or nagged.
 <!-- praxis:end upkeep -->
 
 <!-- praxis:begin node-recipes sha256=1f945083a7dcb1e305c26d915c8296825ad0d7fddf4774a3ea0f1a4a28763f98 (managed by praxis - edit praxis.yaml then run: praxis sync) -->
@@ -208,3 +213,22 @@ instruction sections aren't authored yet.
 - **Absent:** do nothing here — `$praxis-upkeep` (ongoing front gate, D29/D31)
   handles currency after initial setup.
 <!-- praxis:end onboarding -->
+
+<!-- praxis:begin changelog sha256=bb4eea8e21819cbe67cd239c378da5d375090b4d14d02fd0e8b3e3df90bf9d09 (managed by praxis - edit praxis.yaml then run: praxis sync) -->
+## Changelog
+
+A release that ships without a record of what changed forces every consumer to
+read diffs or guess. Keep a `CHANGELOG.md`: consumer-facing release
+communication — a different audience from the knowledge wiki (the project's own
+durable memory) and from a handoff (transient session context).
+
+When a change alters user-visible behavior — a flag, an output, a default, a
+requirement, a removal — record it under `Unreleased` by running
+`$praxis-changelog`, not by hand-editing. Recording at the time of
+the change is the point; reconstructing a release's contents afterwards from
+git history is guesswork.
+
+Every released version carries an **Upgrading** note stating what the upgrade
+asks of a consumer — a prerequisite, a required edit, or explicitly nothing.
+Consumers and agents read that note to decide whether an upgrade is routine.
+<!-- praxis:end changelog -->
