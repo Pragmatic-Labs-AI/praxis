@@ -13,6 +13,11 @@ Releases before 0.2.0 predate this file and are not recorded here; see the
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-28
+
+Release communication becomes part of the methodology Praxis ships, rather
+than something this project did by hand and then forgot.
+
 ### Added
 
 - `changelog` package (`provides: [rules, commands]`) — a standing reminder to
@@ -24,6 +29,9 @@ Releases before 0.2.0 predate this file and are not recorded here; see the
   right order, after reading the target version's **Upgrading** note.
 - `CHANGELOG.md` now ships in the published npm package, so an upgrade's
   **Upgrading** note is readable from `node_modules` without visiting GitHub.
+- Each release now gets a **GitHub Release**, created by the release workflow
+  with that version's changelog section as its body. Previously a version could
+  ship to npm while the releases page still advertised the one before it.
 
 ### Changed
 
@@ -33,6 +41,27 @@ Releases before 0.2.0 predate this file and are not recorded here; see the
 - Consumer-CI documentation now covers **non-Node projects**: Python and other
   repos pin the CLI with `npm exec --yes --package=@pragmatic-labs/praxis@<version>`
   instead of adding a `package.json`, a lockfile, or committed `node_modules`.
+
+### Upgrading
+
+Set `methodology: "0.3.0"` in `praxis.yaml` and run `praxis sync` — or run
+`praxis sync` in an interactive terminal and accept the bump prompt. As of
+0.2.0, `praxis check` fails until the pin matches the installed CLI, so both
+move together.
+
+Two things beyond the routine bump:
+
+- **If you have the `upkeep` package installed, this arrives automatically** —
+  it is not opt-in. The upkeep rule now asks your agent to check for a newer
+  Praxis release at the start of work and offer `/praxis-upgrade`. It never
+  upgrades unprompted and stays silent when the registry is unreachable, but it
+  does add ~4 always-loaded lines and one new command to your emitted
+  methodology.
+- **The `changelog` package is opt-in.** Nothing changes unless you add
+  `changelog` to `packages:` in `praxis.yaml`. Do that if you want the practice
+  — a `CHANGELOG.md` reminder plus `/praxis-changelog` — in your own repo.
+
+If you install neither, this is a pin-only upgrade: no emitted file changes.
 
 ## [0.2.0] - 2026-07-23
 
