@@ -88,6 +88,22 @@ jobs:
           fi
           echo "tag $TAG matches package.json version $PKG_VERSION"
 
+      # The `changelog` package ships the practice; this gate makes it real for
+      # Praxis itself — a release without published upgrade guidance is exactly
+      # what left 0.2.0 undocumented (docs/wiki/decisions.md D62).
+      - name: Verify CHANGELOG has an entry for this version
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if ! grep -qE "^## \[?${VERSION}\]?( |$|\s*-)" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no '## [$VERSION]' section — every release states what it brings and what it asks of consumers"
+            exit 1
+          fi
+          if ! awk "/^## \[?${VERSION}\]?( |$|\\s*-)/{f=1;next} /^## /{f=0} f" CHANGELOG.md | grep -qi '^### Upgrading'; then
+            echo "::error::CHANGELOG.md section for $VERSION has no '### Upgrading' note — state the prerequisite, or say explicitly that there is none"
+            exit 1
+          fi
+          echo "CHANGELOG.md documents $VERSION, including an Upgrading note"
+
       # Lets conformance/codex.conformance.test.ts validate emitted Codex
       # rules against the real tool instead of skipping (Tool-neutral rail).
       - run: npm install -g @openai/codex@0.144.6
@@ -106,6 +122,7 @@ jobs:
             const [pkg] = JSON.parse(out);
             const allowedDirs = ["dist/", "packages/"];
             const allowedFiles = new Set([
+              "CHANGELOG.md",
               "NOTICE",
               "npm-shrinkwrap.json",
               "package.json",
