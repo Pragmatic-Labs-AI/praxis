@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyOp, planEmit } from "../src/emit.js";
 import type { Manifest } from "../src/manifest.js";
-import { type RuleSet, reconcilePermissions } from "../src/merge-json.js";
+import { MANAGED_MARKER, type RuleSet, reconcilePermissions } from "../src/merge-json.js";
 import { currentMethodology } from "../test/helpers.js";
 
 /**
@@ -91,6 +91,72 @@ describe("conformance: JSON permission merge", () => {
     ].join("\n");
     expect(result.conflicts, guidance).toContain("permissions.allow");
     expect(JSON.parse(result.text).permissions.allow, guidance).not.toContain("Read(./**)");
+  });
+
+  it("treats a hand-edited ownership marker as a conflict, never deleting the user's live rule", () => {
+    // The 0.3.0 data-loss path. `_praxis.managed` is Praxis's record of what it
+    // emitted, but it *looks* like the place to configure, so people edited it.
+    // The per-entry merge then read the user's own rule as "Praxis emitted this
+    // and no longer ships it" and pruned it from the live block — silently, with
+    // no conflict reported.
+    const tampered = JSON.parse(MANAGED);
+    tampered.permissions.allow.push("Bash(make:*)"); // user's own rule, in the live block
+    tampered._praxis.managed.permissions.allow.push("Bash(make:*)"); // ...and in the mirror
+    const edited = `${JSON.stringify(tampered, null, 2)}\n`;
+    const result = reconcilePermissions(edited, DESIRED);
+    const guidance = [
+      `A hand-edited _praxis.managed marker must be a conflict (D10), not a licence to prune the`,
+      `live block. The marker carries an integrity hash written by Praxis; when the recorded hash`,
+      `does not match the marker's contents a human edited it, so reconcileSettings must return the`,
+      `file untouched with a "${MANAGED_MARKER}" conflict. Without that check, a rule the user added`,
+      `to BOTH blocks is silently deleted from the live block — the exact opposite of the`,
+      `"never clobbers rules you add" promise in packages/layer1/safe-permissions/permissions.yaml.`,
+      `See src/merge-json.ts.`,
+    ].join("\n");
+    expect(result.conflicts, guidance).toContain(MANAGED_MARKER);
+    expect(result.changed, guidance).toBe(false);
+    expect(JSON.parse(result.text).permissions.allow, guidance).toContain("Bash(make:*)");
+  });
+
+  it("trusts a pre-integrity marker with no hash, and upgrades it in place", () => {
+    const legacy = JSON.parse(MANAGED);
+    delete legacy._praxis.hash;
+    delete legacy._praxis._comment;
+    const result = reconcilePermissions(`${JSON.stringify(legacy, null, 2)}\n`, DESIRED);
+    const guidance = [
+      `A settings.json written before marker integrity existed has no hash. That is legacy, not`,
+      `tampering: flagging it would make every existing consumer conflict on upgrade. Treat a`,
+      `missing hash as trusted, sync normally, and write a hash so the next run is protected.`,
+      `See the marker.hash check in src/merge-json.ts.`,
+    ].join("\n");
+    expect(result.conflicts, guidance).toEqual([]);
+    expect(typeof JSON.parse(result.text)._praxis.hash, guidance).toBe("string");
+  });
+
+  it("carries an inline do-not-edit notice in the marker JSON has no comments for", () => {
+    const marker = JSON.parse(reconcilePermissions("", DESIRED).text)._praxis;
+    const guidance = [
+      `The ownership marker must carry its own "generated — do not edit" notice. JSON has no`,
+      `comment syntax, so the warning rides as a sibling key of \`managed\` — the only place someone`,
+      `about to edit the block will actually read it. Check MANAGED_COMMENT in src/merge-json.ts.`,
+    ].join("\n");
+    expect(typeof marker._comment, guidance).toBe("string");
+    expect(marker._comment.toLowerCase(), guidance).toContain("do not edit");
+  });
+
+  it("reports what changed, not merely that something did", () => {
+    const stale = JSON.parse(MANAGED);
+    stale.permissions.allow.push("Bash(retired:*)");
+    stale._praxis.managed.permissions.allow.push("Bash(retired:*)");
+    delete stale._praxis.hash; // legacy file, so the marker is trusted and the rule really is retired
+    const result = reconcilePermissions(`${JSON.stringify(stale, null, 2)}\n`, DESIRED);
+    const guidance = [
+      `\`praxis check\` reported "~ .claude/settings.json (drift)" with no indication of WHAT drifted.`,
+      `reconcileSettings must return a \`changes\` entry per affected group naming the added/removed`,
+      `rules, which src/program.ts prints under the file line in check and dry-run modes.`,
+    ].join("\n");
+    expect(result.changed, guidance).toBe(true);
+    expect(result.changes.join("\n"), guidance).toContain("permissions.allow: -Bash(retired:*)");
   });
 
   it("emits valid JSON and tracks ownership in a top-level _praxis key (not inside permissions)", () => {

@@ -40,9 +40,16 @@ extreme:
 
 - `praxis` — first-run wizard; apply.
 - `praxis sync` — reconcile repo → `praxis.yaml`; offer newer methodology; diff +
-  confirm.
+  confirm. Flags: `--yes` (never prompt), `--dry-run`/`-n` (print the plan and
+  exit without writing), `--force` (overwrite destinations carrying uncommitted
+  changes — refused by default, see [merge-engine](merge-engine.md)).
 - `praxis check` — dry-run; report generated drift, broken anchors, and dual
-  Claude+Codex shared-project parity; non-zero exit for CI.
+  Claude+Codex shared-project parity; non-zero exit for CI. Drifted files print
+  what changed beneath them: per-rule deltas for `.claude/settings.json`, a line
+  count elsewhere.
+
+Flags, not commands: D3 caps the *command* surface at init/sync/check, and a
+preview of `sync` is a mode of `sync`, not a fourth verb.
 
 No `add`/`remove`/`list`. All customization is *edit `praxis.yaml`, then sync* —
 one obvious way to change things, least surface to keep coherent.

@@ -9,6 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { randomBytes } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { basename, dirname, join } from "node:path";
 import { applyOp, BLOCK_FILE, planEmit, type EmitOp } from "./emit.js";
 import { loadManifest, type Manifest } from "./manifest.js";
@@ -60,6 +61,11 @@ export interface FileReport {
   conflicts: string[];
   /** Whether this file was written this run (false in check/dry-run mode). */
   written: boolean;
+  /** What would change, for `check` and `sync --dry-run` to print under the
+   *  file line. `~ path (drift)` on its own says a file differs but not how —
+   *  the JSON merge reports per-group rule deltas, everything else a line
+   *  count. Absent when the file is unchanged. */
+  details?: string[];
 }
 
 export interface SyncReport {
@@ -75,6 +81,8 @@ export interface SyncOptions {
   /** false = check (dry-run): compute the report, write nothing. */
   write: boolean;
   manifestPath?: string;
+  /** Overwrite destinations with uncommitted changes instead of refusing. */
+  force?: boolean;
 }
 
 /** A staged write or delete failed hash verification, or every mutation could
@@ -85,6 +93,69 @@ export class SyncStagingError extends Error {
     super(message);
     this.name = "SyncStagingError";
   }
+}
+
+/** `sync` is about to overwrite a tracked file whose working-tree copy has
+ *  uncommitted edits. Thrown before any destination is touched, so the repo is
+ *  left byte-identical — the escape hatch is `--force`. */
+export class UncommittedChangesError extends Error {
+  constructor(public readonly paths: string[]) {
+    super(
+      "praxis sync would overwrite uncommitted changes in:\n" +
+        paths.map((p) => `  ${p}`).join("\n") +
+        "\n\nCommit or stash them first, then re-run — or pass --force to overwrite anyway.\n" +
+        "Praxis owns these files, but an uncommitted edit has no committed copy to recover from.\n" +
+        "`praxis sync --dry-run` shows exactly what would be rewritten.",
+    );
+    this.name = "UncommittedChangesError";
+  }
+}
+
+/**
+ * Of `paths`, those git reports as **tracked and modified** (staged or not).
+ * Returns [] when git is missing or `cwd` is not a repository, so a non-git
+ * checkout still syncs.
+ *
+ * Untracked files (`??`) are deliberately excluded: after `praxis init` every
+ * emitted file is untracked, so guarding them would refuse the ordinary
+ * init → sync flow, and there is no committed baseline to claim was lost.
+ * `--ignored` is likewise not passed — a repo that gitignores
+ * `.claude/settings.json` (a common posture) would otherwise be refused on
+ * every sync. Both gaps are stated in the CHANGELOG rather than left implicit;
+ * for `.claude/settings.json` specifically the ownership-marker integrity check
+ * in src/merge-json.ts catches hand-edits independently of git.
+ */
+/** Coarse `+N/-M lines` summary for deliveries with no structured diff of their
+ *  own. Set semantics on whole lines: a moved line is not counted as changed,
+ *  which keeps the summary honest for block re-ordering. */
+function lineDelta(before: string, after: string): string[] {
+  const beforeLines = before.split("\n");
+  const afterLines = after.split("\n");
+  const beforeSet = new Set(beforeLines);
+  const afterSet = new Set(afterLines);
+  const added = afterLines.filter((l) => !beforeSet.has(l)).length;
+  const removed = beforeLines.filter((l) => !afterSet.has(l)).length;
+  if (added === 0 && removed === 0) return [];
+  return [`+${added}/-${removed} lines`];
+}
+
+function uncommittedTrackedPaths(cwd: string, paths: string[]): string[] {
+  if (paths.length === 0) return [];
+  let out: string;
+  try {
+    out = execFileSync("git", ["status", "--porcelain", "--", ...paths], {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+  } catch {
+    return [];
+  }
+  return out
+    .split("\n")
+    .filter((line) => line.length > 3 && !line.startsWith("??"))
+    .map((line) => line.slice(3).trim())
+    .filter(Boolean);
 }
 
 /** One planned filesystem transition, computed read-only during the plan phase
@@ -116,7 +187,7 @@ export interface RequiredWrite {
 
 export function runSync(opts: SyncOptions): SyncReport {
   const manifestPath = opts.manifestPath ?? join(opts.cwd, "praxis.yaml");
-  return applyManifest(loadManifest(manifestPath), opts.cwd, opts.write);
+  return applyManifest(loadManifest(manifestPath), opts.cwd, opts.write, undefined, opts.force);
 }
 
 /**
@@ -129,6 +200,7 @@ export function applyManifest(
   cwd: string,
   write: boolean,
   requiredWrite?: RequiredWrite,
+  force = false,
 ): SyncReport {
   const ops = planEmit(manifest, cwd);
 
@@ -210,7 +282,9 @@ export function applyManifest(
     // Stage safe changes only: never in check mode, never a pure no-op. `text`
     // already preserves any conflicted block, so staging it honors D10.
     const wouldWrite = status === "created" || status === "updated";
-    const report: FileReport = { path: op.path, status, conflicts, written: false };
+    const details =
+      status === "updated" ? (result.changes ?? lineDelta(existing ?? "", text)) : undefined;
+    const report: FileReport = { path: op.path, status, conflicts, written: false, details };
     files.push(report);
     if (write && wouldWrite) {
       mutations.push({
@@ -358,7 +432,15 @@ export function applyManifest(
     }
   }
 
-  if (write && mutations.length > 0) commitMutations(mutations);
+  if (write && mutations.length > 0) {
+    // Ahead of the commit boundary, so a refusal leaves every destination
+    // byte-identical — same posture as a staging failure (D61).
+    if (!force) {
+      const dirty = uncommittedTrackedPaths(cwd, mutations.map((m) => m.path));
+      if (dirty.length > 0) throw new UncommittedChangesError(dirty);
+    }
+    commitMutations(mutations);
+  }
 
   return {
     files,

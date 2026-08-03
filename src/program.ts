@@ -59,12 +59,17 @@ export function previousWizardStep(step: Exclude<WizardStep, "mode">, mode: Wiza
   return "targets";
 }
 
-function formatPlan(report: SyncReport, mode: "init" | "sync" | "check"): string {
+function formatPlan(report: SyncReport, mode: "init" | "sync" | "check" | "dry-run"): string {
+  const explain = mode === "check" || mode === "dry-run";
   return report.files
     .map((f) => {
       const drift = mode === "check" && f.status !== "unchanged" ? " (drift)" : "";
       const conflict = f.conflicts.length ? `  ⚠ conflict: ${f.conflicts.join(", ")}` : "";
-      return `  ${STATUS_SYMBOL[f.status]} ${f.path}${drift}${conflict}`;
+      const line = `  ${STATUS_SYMBOL[f.status]} ${f.path}${drift}${conflict}`;
+      // What drifted, not just that something did. Only in the read-only modes:
+      // `sync`/`init` already print the outcome, and the detail is noise there.
+      if (!explain || !f.details?.length) return line;
+      return [line, ...f.details.map((d) => `      ${d}`)].join("\n");
     })
     .join("\n");
 }
@@ -197,8 +202,9 @@ export interface ReconcileResult {
 export function reconcile(
   cwd: string,
   write: boolean,
-  mode: "sync" | "check",
+  mode: "sync" | "check" | "dry-run",
   manifestOverride?: { manifest: Manifest; requiredWrite: RequiredWrite },
+  force = false,
 ): ReconcileResult {
   const version = praxisVersion();
   let syncReport: SyncReport | undefined;
@@ -207,8 +213,8 @@ export function reconcile(
 
   try {
     syncReport = manifestOverride
-      ? applyManifest(manifestOverride.manifest, cwd, write, manifestOverride.requiredWrite)
-      : runSync({ cwd, write });
+      ? applyManifest(manifestOverride.manifest, cwd, write, manifestOverride.requiredWrite, force)
+      : runSync({ cwd, write, force });
     if (mode === "check" ? syncReport.changed || syncReport.hasConflicts : syncReport.hasConflicts) {
       exitCode = 1;
     }
@@ -273,11 +279,12 @@ export function reconcile(
 
 function runReconcile(
   write: boolean,
-  mode: "sync" | "check",
+  mode: "sync" | "check" | "dry-run",
   cwd: string = process.cwd(),
   manifestOverride?: { manifest: Manifest; requiredWrite: RequiredWrite },
+  force = false,
 ): ReconcileResult {
-  const result = reconcile(cwd, write, mode, manifestOverride);
+  const result = reconcile(cwd, write, mode, manifestOverride, force);
 
   // Surface the running version in check output so a stale npx-cached build is
   // visible instead of silently under-reporting (D40).
@@ -286,6 +293,13 @@ function runReconcile(
   if (result.syncError) {
     console.error(`praxis: ${result.syncError}`);
   } else if (result.syncReport) {
+    if (mode === "dry-run") {
+      console.log(
+        result.syncReport.changed
+          ? "Dry run — nothing written. `praxis sync` would apply:"
+          : "Dry run — nothing written. Already in sync:",
+      );
+    }
     console.log(formatPlan(result.syncReport, mode));
     if (result.syncReport.hasConflicts) {
       console.error(
@@ -397,8 +411,18 @@ async function offerMethodologyBump(cwd: string): Promise<BumpOutcome> {
 /** `sync`'s CLI action. `--yes` and any non-interactive invocation keep the
  *  pre-existing fail-loud behavior untouched (never prompt); only a real
  *  interactive TTY sync offers the methodology confirm-to-bump above. */
-export async function runSyncAction(opts: { yes?: boolean }, cwd: string = process.cwd()): Promise<void> {
+export async function runSyncAction(
+  opts: { yes?: boolean; dryRun?: boolean; force?: boolean },
+  cwd: string = process.cwd(),
+): Promise<void> {
   let confirmed: ConfirmedBump | undefined;
+
+  // A dry run writes nothing, so it must not prompt to bump the methodology pin
+  // either — previewing a sync cannot be the thing that edits praxis.yaml.
+  if (opts.dryRun) {
+    runReconcile(false, "dry-run", cwd);
+    return;
+  }
 
   if (!opts.yes && isInteractiveTerminal()) {
     const bump = await offerMethodologyBump(cwd);
@@ -416,6 +440,7 @@ export async function runSyncAction(opts: { yes?: boolean }, cwd: string = proce
     confirmed
       ? { manifest: confirmed.manifest, requiredWrite: confirmed.requiredWrite }
       : undefined,
+    opts.force,
   );
 }
 
@@ -690,7 +715,9 @@ export function buildProgram(): Command {
     .command("sync")
     .description("Reconcile the repo to praxis.yaml; write managed methodology files.")
     .option("-y, --yes", "skip the interactive methodology-bump confirm; fail loud on a stale pin instead")
-    .action((opts: { yes?: boolean }) => runSyncAction(opts));
+    .option("-n, --dry-run", "show what sync would write, then exit without writing")
+    .option("--force", "overwrite destinations that have uncommitted changes")
+    .action((opts: { yes?: boolean; dryRun?: boolean; force?: boolean }) => runSyncAction(opts));
 
   program
     .command("check")
