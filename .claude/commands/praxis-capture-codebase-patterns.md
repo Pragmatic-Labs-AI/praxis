@@ -1,7 +1,7 @@
 ---
 description: Capture this team's own coding patterns from an exemplar module into a project-local Praxis package that rides praxis sync.
 argument-hint: [optional-exemplar-path]
-allowed-tools: Read, Glob, Grep, Bash(git log:*), Bash(git diff:*), Bash(ls:*), Bash(mkdir:*), Write, Edit, Bash(npx @pragmatic-labs/praxis@latest sync:*), Bash(npx @pragmatic-labs/praxis@latest check:*), Bash(npx @pragmatic-labs/praxis sync:*), Bash(npx @pragmatic-labs/praxis check:*), Bash(praxis sync:*), Bash(praxis check:*)
+allowed-tools: Read, Glob, Grep, Bash(git log:*), Bash(git diff:*), Bash(ls:*), Bash(mkdir:*), Write, Edit, Bash(npx @pragmatic-labs/praxis@0.3.0 sync:*), Bash(npx @pragmatic-labs/praxis@0.3.0 check:*), Bash(praxis sync:*), Bash(praxis check:*)
 ---
 
 Exemplar: $ARGUMENTS — if empty, propose candidates in step 2 rather than
@@ -57,10 +57,11 @@ Praxis's own CLI only resolves, emits, and syncs the package once it exists.
    syncing is the only customization path — never write emitted files by hand.
 
 7. **Sync + verify.** Run `praxis sync` if the CLI is on PATH, otherwise fall
-   back to `npx @pragmatic-labs/praxis@latest sync` (pin `@latest` — a bare
-   `npx @pragmatic-labs/praxis` can silently reuse a stale cached build). Then
-   run `praxis check` (or the `npx` equivalent) and fix anything it reports
-   before finishing.
+   back to `npx @pragmatic-labs/praxis@0.3.0 sync` — pinned to this
+   repo's `methodology:`, never `@latest`. A bare `npx @pragmatic-labs/praxis`
+   can reuse a stale cached build, and `@latest` fetches a CLI that `check` and
+   `sync` will refuse when it differs from the pin. Then run `praxis check` (or
+   the `npx` equivalent) and fix anything it reports before finishing.
 
 8. **Report.** Summarize the conventions captured (with their exemplar
    pointers), any candidates the user rejected and why, and note that this

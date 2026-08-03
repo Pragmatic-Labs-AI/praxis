@@ -11,10 +11,16 @@ them — restating their logic here would duplicate content that drifts
 independently of its canonical home.
 
 1. **Deterministic drift.** Run `praxis check` if the CLI is on PATH. Otherwise
-   fall back to `npx @pragmatic-labs/praxis@latest check` (pin `@latest` — a bare
-   `npx @pragmatic-labs/praxis` can silently reuse a stale cached build). If it
-   reports file drift, run `praxis sync` (or `npx @pragmatic-labs/praxis@latest
-   sync`) to fix it. Surface managed-block conflicts, shared-project parity
+   fall back to `npx @pragmatic-labs/praxis@0.3.0 check` — pinned to
+   this repo's `methodology:`, never `@latest`. A bare
+   `npx @pragmatic-labs/praxis` can silently reuse a stale cached build, but
+   `@latest` is worse than useless here: `methodology:` must equal the running
+   CLI exactly, so a newer CLI makes `check` and `sync` refuse to run at all.
+   Upgrading is `$praxis-upgrade`'s job, never a side effect of
+   upkeep. If it reports file drift, run `praxis sync` (or
+   `npx @pragmatic-labs/praxis@0.3.0 sync`) to fix it. Use
+   `sync --dry-run` first if you want to see the rewrite before it lands.
+   Surface managed-block conflicts, shared-project parity
    drift, or broken anchors as-is. `sync` fixes generated artifacts but must
    never choose a winner between project-owned `CLAUDE.md` and `AGENTS.md`
    blocks; route that drift to the instruction pass below.
@@ -28,7 +34,9 @@ independently of its canonical home.
    anchor line is absent, or the command errored (e.g. an unknown-package or
    invalid-manifest message), the check did not fully run — report that as a
    failure, never as "0 checked, all fine".** A stale npx-cached CLI is the usual
-   cause; re-run pinned to `@latest`, and note the version if it still lags.
+   cause; re-run with the `@0.3.0` pin above, and if the reported
+   version still differs from `methodology:`, report that mismatch rather than
+   working around it.
 2. **Instruction layer.** Perform the update defined by `$praxis-instructions`,
    scoped to the focus above. Follow that command's own steps; do not
    re-derive them here.

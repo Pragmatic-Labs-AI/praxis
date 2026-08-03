@@ -154,7 +154,7 @@ describe("conformance: workspace tier", () => {
     expect(renderedRules[1], guidance).toContain("`$praxis-workspace-upkeep`");
   });
 
-  it("falls back to @latest when praxis is unavailable in the hub or a member", () => {
+  it("falls back to a version-pinned npx when praxis is unavailable in the hub or a member", () => {
     const manifest: Manifest = {
       version: 1,
       methodology: currentMethodology(),
@@ -170,19 +170,26 @@ describe("conformance: workspace tier", () => {
     );
     const guidance = [
       `The workspace-upkeep workflow must make CLI resolution executable prose, not merely`,
-      `authorize npx in Claude's allowed-tools frontmatter. In both target renderings it`,
-      `must say that an unavailable local praxis command falls back to the pinned`,
-      `npx @pragmatic-labs/praxis@latest check invocation, and that this applies in the hub`,
-      `and every cloned member. Check packages/layer2/workspace/commands/workspace-upkeep.md.`,
+      `authorize npx in Claude's allowed-tools frontmatter. In both target renderings it must say`,
+      `that an unavailable local praxis command falls back to an npx invocation pinned to the`,
+      `repo's own methodology version, and that this applies in the hub and every cloned member.`,
+      `The pin must be a resolved version, never @latest: methodology: must equal the running CLI`,
+      `exactly (D59), so a floating tag fetches a CLI that check/sync refuse. And because a member`,
+      `pins its own methodology: — which may differ from the hub's — the prose must tell the agent`,
+      `to read that member's pin rather than reuse the hub's.`,
+      `Check packages/layer2/workspace/commands/workspace-upkeep.md.`,
     ].join("\n");
 
     expect(workflowOps, guidance).toHaveLength(2);
     for (const op of workflowOps) {
       if (op.kind !== "owned") continue;
       expect(op.content, guidance).toMatch(/If `praxis` is\s+unavailable/);
-      expect(op.content, guidance).toContain("`npx @pragmatic-labs/praxis@latest check`");
-      expect(op.content, guidance).toContain("`npx @pragmatic-labs/praxis@latest sync`");
+      expect(op.content, guidance).toContain(
+        `npx @pragmatic-labs/praxis@${currentMethodology()} check`,
+      );
+      expect(op.content, guidance).not.toMatch(/@pragmatic-labs\/praxis@latest\b/);
       expect(op.content, guidance).toContain("hub and every cloned member");
+      expect(op.content, guidance).toMatch(/member repo\s+pins its own/i);
     }
   });
 
