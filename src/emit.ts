@@ -15,7 +15,7 @@ import {
 import { resolvePackages } from "./packages.js";
 import { resolveContained } from "./path-safety.js";
 import { praxisVersion } from "./version.js";
-import { type Capability, loadPolicy, type Policy } from "./permissions.js";
+import { type Capability, loadPolicy, type Policy, SECRET_FILE_PATTERNS } from "./permissions.js";
 import { loadPluginsBlock } from "./plugins.js";
 import { reconcileCodexConfig, renderCodexRules } from "./codex-security.js";
 import {
@@ -141,6 +141,16 @@ const COMMAND_DIR: Partial<Record<Target, string>> = {
   "claude-code": ".claude/commands",
 };
 
+/** `read-secrets` in Claude Code's grammar: every neutral secret shape denied at
+ *  the repo root and, separately, at any depth. Both forms are emitted rather
+ *  than relying on a leading globstar to also match a root-level file — the
+ *  settings docs do not specify whether a globstar matches zero directories,
+ *  and a security rule must not rest on an unverified matcher detail. Nested
+ *  coverage is deliberate: a monorepo's `packages/api/.env` is a real secret. */
+function readSecretsRules(): string[] {
+  return SECRET_FILE_PATTERNS.flatMap((pattern) => [`Read(./${pattern})`, `Read(./**/${pattern})`]);
+}
+
 /**
  * Claude Code permission emitter (docs/wiki/emitters.md — *quarantined per-tool*;
  * D19). Maps each neutral capability to concrete Claude Code rule strings.
@@ -153,6 +163,12 @@ const COMMAND_DIR: Partial<Record<Target, string>> = {
  * prefix-matched rules cannot reliably catch a pipe, and a denylist that looks
  * protective but isn't is worse than none (the "denylist delusion"). Excluded by
  * the content bar (durable + verified) rather than emitted as a false guarantee.
+ *
+ * `read-secrets` is the one enumerated denylist here, accepted knowingly rather
+ * than by oversight: the blanket `.env.*` it replaces could not be carved out
+ * downstream and blocked template files agents legitimately need. The scope of
+ * what it does and does not guarantee is stated on SECRET_FILE_PATTERNS
+ * (src/permissions.ts), which is also the single source both emitters derive from.
  */
 const CLAUDE_CODE_RULES: Record<Capability, string[]> = {
   "read-repo": ["Read(./**)"],
@@ -169,7 +185,7 @@ const CLAUDE_CODE_RULES: Record<Capability, string[]> = {
   "install-deps": ["Bash(npm install:*)", "Bash(npm i:*)", "Bash(npm ci:*)"],
   "destructive-delete": ["Bash(rm -rf:*)"],
   "force-push": ["Bash(git push --force:*)", "Bash(git push -f:*)"],
-  "read-secrets": ["Read(./.env)", "Read(./.env.*)", "Read(./**/*.pem)", "Read(./**/credentials*)"],
+  "read-secrets": readSecretsRules(),
   "global-install": ["Bash(npm install -g:*)", "Bash(npm i -g:*)", "Bash(pnpm add -g:*)"],
 };
 

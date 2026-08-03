@@ -16,7 +16,11 @@ describe("Codex security emitter", () => {
     expect(first.conflicts).toEqual([]);
     expect(first.text).toContain('default_permissions = "praxis-safe-permissions"');
     expect(first.text).toContain('"**/*.pem" = "deny"');
-    expect(first.text).toContain('"**/.env*" = "deny"');
+    // Enumerated secret names, not a blanket `.env*` — that wildcard also denied
+    // committed templates like .env.example (conformance/secret-files.conformance.test.ts).
+    expect(first.text).toContain('".env" = "deny"');
+    expect(first.text).toContain('".env.local" = "deny"');
+    expect(first.text).not.toContain('"**/.env*" = "deny"');
     expect(first.text).toContain("enabled = false");
     expect(reconcileCodexConfig(first.text, true).changed).toBe(false);
     const removed = reconcileCodexConfig(first.text, false);

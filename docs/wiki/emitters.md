@@ -71,6 +71,36 @@ capability: prefix-matched rules cannot reliably catch a pipe, and a
 denylist that looks protective but isn't is worse than none — excluded by
 the content bar rather than emitted as a false guarantee.
 
+### What `read-secrets` denies, and what it doesn't
+
+`read-secrets` is the one **enumerated denylist** in the policy, accepted
+knowingly against the bar above. Both emitters derive their rules from a single
+neutral list — `SECRET_FILE_PATTERNS` in `src/permissions.ts` — rendered by
+`readSecretsRules()` (Claude Code) and `CODEX_SECRET_DENY_LINES` (Codex), at the
+repo root *and* at any depth. One list is the mechanism that keeps the targets
+from drifting: they previously had, with Claude denying a root-anchored
+`.env.*` while Codex denied a globstar-prefixed `.env*` that also swept in
+`.envrc` — the same repo, different effective policy per target.
+
+The blanket wildcard was dropped because it denied committed, secret-free
+templates (`.env.example`, `.env.sample`, `.env.template`, `.env.dist`) that
+agents need in order to author a real `.env`, and **a consumer could not carve
+them out downstream**: `deny` beats `allow`, so adding `Read(./.env.example)`
+to `allow` does nothing. Character-class negation was rejected as strictly
+worse — `Read(./.env.[!e]*)` plus `Read(./.env.e[!x]*)` un-denies `.env.example`
+but silently leaks `.env.experimental`, which matches neither pattern; and
+Claude Code's settings docs do not specify whether the matcher supports
+character classes at all, so it would also fail the content bar's "verified"
+requirement.
+
+The cost is real and stated rather than implied: a secret-bearing file outside
+the list (`.env.secrets`, `.env.experimental`) is readable. Consumers who need
+it covered add their own deny rule, which survives `sync` as a user entry.
+`conformance/secret-files.conformance.test.ts` pins all of this — no unbounded
+`.env` wildcard, no pattern that can match a template, both emitters agreeing
+shape-for-shape, and the accepted gap asserted explicitly so closing it has to
+be a deliberate edit.
+
 ## Command emitter (D22)
 
 Workflows are a content package's **third artifact kind** (after
