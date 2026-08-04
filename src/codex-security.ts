@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { Capability, Policy } from "./permissions.js";
+import { type Capability, type Policy, SECRET_FILE_PATTERNS } from "./permissions.js";
 
 const BLOCK_ID = "safe-permissions";
 const BEGIN = /^# praxis:begin safe-permissions sha256=([a-f0-9]{64})$/m;
@@ -8,6 +8,16 @@ const END = /^# praxis:end safe-permissions$/m;
 function hash(text: string): string {
   return createHash("sha256").update(text).digest("hex");
 }
+
+/** The `read-secrets` deny entries in Codex's filesystem-rule grammar, derived
+ *  from the same neutral list the Claude Code emitter uses (SECRET_FILE_PATTERNS,
+ *  src/permissions.ts) so the two targets cannot drift into different effective
+ *  policy for one repo. Root and any-depth forms are both emitted, mirroring
+ *  readSecretsRules() in src/emit.ts. */
+const CODEX_SECRET_DENY_LINES = SECRET_FILE_PATTERNS.flatMap((pattern) => [
+  `${JSON.stringify(pattern)} = "deny"`,
+  `${JSON.stringify(`**/${pattern}`)} = "deny"`,
+]).join("\n");
 
 export const CODEX_CONFIG_BODY = `default_permissions = "praxis-safe-permissions"
 
@@ -19,10 +29,7 @@ extends = ":workspace"
 glob_scan_max_depth = 12
 
 [permissions.praxis-safe-permissions.filesystem.":workspace_roots"]
-".env" = "deny"
-"**/.env*" = "deny"
-"**/*.pem" = "deny"
-"**/credentials*" = "deny"
+${CODEX_SECRET_DENY_LINES}
 
 [permissions.praxis-safe-permissions.network]
 enabled = false`;

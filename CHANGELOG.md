@@ -24,6 +24,22 @@ Releases before 0.2.0 predate this file and are not recorded here; see the
   `.claude/settings.json` (`permissions.deny: +Read(./.env.local) -Read(./.env.*)`)
   and a `+N/-M lines` summary elsewhere.
 
+### Changed
+
+- **`read-secrets` no longer denies `.env` templates.** The emitted deny rules
+  listed a blanket `.env.*` (Claude Code) and `**/.env*` (Codex), which blocked
+  committed, secret-free templates — `.env.example`, `.env.sample`,
+  `.env.template`, `.env.dist` — that an agent needs in order to author a real
+  `.env`. Because deny beats allow in Claude Code, no consumer could carve them
+  out downstream. Both emitters now derive from one enumerated list of
+  secret-bearing names (`SECRET_FILE_PATTERNS`, `src/permissions.ts`).
+- **The two emitters no longer disagree.** Claude Code denied a root-anchored
+  `.env.*` while Codex denied `**/.env*` at any depth, so one repo got a
+  different effective policy per target and Codex additionally swept in
+  `.envrc`. Both targets now deny the same shapes, at the repo root and at any
+  depth — which also closes a real gap for monorepos, where a nested
+  `packages/api/.env` was previously readable under Claude Code.
+
 ### Fixed
 
 - **`sync` silently deleted rules you added to `.claude/settings.json`.** The
@@ -43,12 +59,27 @@ Releases before 0.2.0 predate this file and are not recorded here; see the
 
 ### Upgrading
 
-Run `praxis sync`. `.claude/settings.json` picks up a `_comment` and `hash`
-inside its `_praxis` key — a one-time rewrite that touches nothing you
-configured. `check` reports it as `_praxis.managed: ownership record updated`.
+Run `praxis sync`. Two emitted files change: `.claude/settings.json` picks up a
+`_comment` and `hash` inside its `_praxis` key plus the rewritten `read-secrets`
+rules, and `.codex/config.toml` picks up the same rule rewrite. Neither touches
+anything you configured; `check` reports the marker change as
+`_praxis.managed: ownership record updated`.
 
-Two things worth knowing:
+Three things worth knowing:
 
+- **This narrows what is denied, so read it before upgrading.** The
+  `read-secrets` replacement is an enumerated list (`.env`, `.env.local`,
+  `.env.*.local`, `.env.development`, `.env.production`, `.env.staging`,
+  `.env.test`, `*.pem`, `credentials*`), not a wildcard. A secret-bearing file
+  whose name falls outside that list — say `.env.secrets` or `.env.experimental`
+  — is now **readable** where the old blanket rule denied it. That is the
+  deliberate cost of making templates readable at all: a blanket rule cannot be
+  carved out downstream, and character-class negation leaks worse
+  (`.env.[!e]*` plus `.env.e[!x]*` misses `.env.experimental` entirely while
+  looking like it covers it). If your repo keeps secrets in a non-conventional
+  `.env.*` name, either rename it to one of the covered shapes or add your own
+  `Read(./.env.yourname)` deny rule to `.claude/settings.json` — user-added
+  rules sit outside the Praxis-managed entries and survive `sync`.
 - **If you had hand-edited `_praxis.managed`, this upgrade is the moment to
   undo it.** A file written by an older Praxis has no hash, so it is trusted
   once — the integrity check protects you from the *next* sync onward. Move any

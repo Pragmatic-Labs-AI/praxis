@@ -38,6 +38,48 @@ const CAPABILITIES = [
 
 export type Capability = (typeof CAPABILITIES)[number];
 
+/**
+ * The file shapes `read-secrets` denotes, tool-neutral and shared by every
+ * emitter (D19's quarantine covers *syntax*, not the underlying intent). Both
+ * the Claude Code table in src/emit.ts and the Codex profile in
+ * src/codex-security.ts derive their rules from this one list, so the same
+ * repo cannot get a different effective policy per target — the divergence
+ * that existed while Claude denied a root-anchored `.env.*` and Codex denied
+ * a globstar-prefixed `.env*` (which also swept in `.envrc`).
+ *
+ * **This is an enumerated denylist, and that is a deliberate, narrower
+ * guarantee than the blanket `.env.*` it replaces.** A conventional template
+ * (`.env.example`, `.env.sample`) is readable — agents legitimately need it to
+ * author a real `.env` — but so is any novel secret-bearing name outside this
+ * list, e.g. `.env.secrets` or `.env.experimental`. Blanket `.env.*` cannot be
+ * carved out downstream (deny beats allow in Claude Code) and character-class
+ * negation leaks worse (`.env.[!e]*` + `.env.e[!x]*` misses `.env.experimental`
+ * entirely), so the choice was between this list and no template access at all.
+ * Extend the list rather than reintroducing a wildcard; see
+ * docs/wiki/emitters.md and this change's CHANGELOG Upgrading note.
+ */
+export const SECRET_FILE_PATTERNS = [
+  ".env",
+  ".env.local",
+  ".env.*.local",
+  ".env.development",
+  ".env.production",
+  ".env.staging",
+  ".env.test",
+  "*.pem",
+  "credentials*",
+] as const;
+
+/** Conventional template names that must stay readable — the usability half of
+ *  the tradeoff above, asserted directly by conformance so a future edit to
+ *  SECRET_FILE_PATTERNS cannot silently re-deny them. */
+export const READABLE_TEMPLATE_NAMES = [
+  ".env.example",
+  ".env.sample",
+  ".env.template",
+  ".env.dist",
+] as const;
+
 const capabilityList = z.array(z.enum(CAPABILITIES)).default([]);
 
 // A policy is the same three buckets the merge owns; each holds capabilities.
