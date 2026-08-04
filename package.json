@@ -43,7 +43,9 @@
     "conformance": "vitest run conformance/",
     "selfcheck": "node dist/cli.js check",
     "test:watch": "vitest",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "docs:pins": "npm run build && node scripts/sync-readme-pins.mjs",
+    "version": "npm run docs:pins && git add README.md"
   },
   "license": "Apache-2.0",
   "author": "Pragmatic Labs",
