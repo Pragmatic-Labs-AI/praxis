@@ -13,6 +13,43 @@ Releases before 0.2.0 predate this file and are not recorded here; see the
 
 ## [Unreleased]
 
+### Fixed
+
+- **The upkeep and upgrade workflows contradicted each other on CLI version.**
+  `/praxis-upkeep` told agents to fall back to
+  `npx @pragmatic-labs/praxis@latest`, while `/praxis-upgrade` requires
+  `methodology:` to equal the running CLI exactly. On a repo pinned to an older
+  release, that fallback fetches a CLI which `check` and `sync` then refuse —
+  so routine upkeep breaks the moment a newer version ships. Emitted
+  methodology now names the pinned invocation
+  (`npx @pragmatic-labs/praxis@<your methodology version>`), substituted at emit
+  time. Four files carried the floating tag, including `allowed-tools`
+  frontmatter that a consumer repo could not have corrected locally.
+
+  Nothing was ever silently upgraded: the version guard added in 0.2.0 already
+  refuses a CLI/pin mismatch in both directions and writes nothing. The bug was
+  a broken maintenance path, not a silent methodology change.
+- **The emitted rules never named the package**, so on a machine without the
+  binary an agent had no way to get from "run `praxis check`" to a command that
+  runs — bare `praxis` is `command not found`, and `npx --no-install praxis`
+  reports npm's unhelpful "could not determine executable to run". The
+  always-loaded upkeep rule now carries the resolvable, pinned invocation.
+- `/praxis-workspace-upkeep` now states that **a member repo pins its own
+  `methodology:`, which may differ from the hub's**, and that commands run
+  inside a member must use that member's version. Previously it directed every
+  repo in the workspace at one floating tag.
+
+### Upgrading
+
+Run `praxis sync`. Your emitted `.claude/rules/praxis-upkeep.md`,
+`.claude/commands/praxis-*.md`, Codex skills, and `AGENTS.md` blocks pick up the
+pinned invocation in place of `@latest`; no manual edit is required.
+
+The pinned version is written into `allowed-tools` frontmatter, so after a
+future version bump the permission entry names the new version. If you have
+copied any of these commands into your own repo-local overrides, re-pin them by
+hand — `sync` only rewrites what Praxis owns.
+
 ## [0.3.0] - 2026-07-28
 
 Release communication becomes part of the methodology Praxis ships, rather

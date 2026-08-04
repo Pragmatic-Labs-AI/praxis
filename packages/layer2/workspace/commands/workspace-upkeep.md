@@ -1,7 +1,7 @@
 ---
 description: Hub-sovereign workspace upkeep — audit this hub and its cloned members, report drift and proposed edits, and apply only what the user confirms.
 argument-hint: [optional-member-or-area-to-focus]
-allowed-tools: Read, Glob, Bash(git log:*), Bash(npx @pragmatic-labs/praxis@latest check:*), Bash(npx @pragmatic-labs/praxis@latest sync:*), Bash(npx @pragmatic-labs/praxis check:*), Bash(npx @pragmatic-labs/praxis sync:*), Bash(praxis check:*), Bash(praxis sync:*)
+allowed-tools: Read, Glob, Bash(git log:*), Bash(npx @pragmatic-labs/praxis@{{methodology}} check:*), Bash(npx @pragmatic-labs/praxis@{{methodology}} sync:*), Bash(praxis check:*), Bash(praxis sync:*)
 ---
 
 Focus: {{arguments}} — if empty, cover the whole workspace at a high level.
@@ -27,12 +27,20 @@ out of planning and confirms.
 
 **CLI resolution (all repos).** In the hub and every cloned member, run
 `praxis check` when that repo has an available `praxis` command. If `praxis` is
-unavailable, immediately fall back to `npx @pragmatic-labs/praxis@latest check`
-and continue the pass — a missing local command is not a reason to skip that
-repo. Use the matching `praxis sync` or
-`npx @pragmatic-labs/praxis@latest sync` invocation if drift needs syncing.
-Always pin the fallback to `@latest`; never use a bare
-`npx @pragmatic-labs/praxis`, which can silently reuse a stale cached build.
+unavailable, fall back to npx and continue the pass — a missing local command is
+not a reason to skip that repo. Use the matching `sync` invocation if drift
+needs syncing.
+
+**Pin the fallback to the repo you are standing in, never `@latest`.** For this
+hub that is `npx @pragmatic-labs/praxis@{{methodology}} check`. **A member repo
+pins its own `methodology:` and it may differ from the hub's** — read that
+member's `praxis.yaml` and use *its* version for commands run inside it. Using
+the wrong version is not a harmless mismatch: `methodology:` must equal the
+running CLI exactly, so `check` and `sync` refuse outright, and `@latest` turns
+every routine pass into that failure the moment a new release ships. A bare
+`npx @pragmatic-labs/praxis` is also wrong — it can reuse a stale cached build.
+Upgrading a repo across versions is `{{workflow:praxis-upgrade}}`'s job, run
+deliberately in that repo, never a side effect of this pass.
 
 1. **Read the workspace** from `praxis.yaml`'s `workspace:` section (members,
    edges, contract pages). If it is absent, say so and stop — this command is

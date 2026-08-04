@@ -74,12 +74,20 @@ export function loadPackageSource(dir: string): string | undefined {
 }
 
 /** Translate neutral source for a specific target. The seam for per-tool
- *  framing; Layer 1 prose is identical across tools today. */
+ *  framing; Layer 1 prose is identical across tools today.
+ *
+ *  `{{methodology}}` resolves to the running CLI's own version, which is also
+ *  the version a consumer's `praxis.yaml` must pin: `resolveMethodology`
+ *  (src/methodology.ts) enforces exact equality before planEmit gets here, so
+ *  there is one value, not two to reconcile. Methodology prose uses it to name
+ *  a *pinned* npx fallback — `@latest` would hand a repo pinned to 0.3.0 a
+ *  newer CLI, which `check`/`sync` then refuse, breaking routine upkeep. */
 function renderNeutralSyntax(source: string, target: Target): string {
   return source
     .replace(/\{\{workflow:([^}]+)\}\}/g, (_match, name: string) => `${target === "codex" ? "$" : "/"}${name}`)
     .replace(/\{\{shell:([^}]+)\}\}/g, (_match, command: string) => target === "codex" ? `run \`${command}\`` : `!\`${command}\``)
-    .replaceAll("{{arguments}}", target === "codex" ? "the arguments supplied with this skill" : "$ARGUMENTS");
+    .replaceAll("{{arguments}}", target === "codex" ? "the arguments supplied with this skill" : "$ARGUMENTS")
+    .replaceAll("{{methodology}}", praxisVersion());
 }
 
 function renderForTarget(source: string, target: Target): string {

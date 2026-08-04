@@ -89,6 +89,37 @@ file (whole-file place/replace, same delivery as `.claude/rules/*.md`).
   permission emitter (D19). `agents-md` (a flat-file standard) has no
   command location, so a commands package contributes nothing to it.
 
+### Neutral placeholders
+
+`renderNeutralSyntax` (`src/emit.ts`) resolves these in every package source —
+rules, Claude commands, Codex skills, and `AGENTS.md` blocks alike, frontmatter
+included:
+
+| Placeholder | Resolves to |
+|---|---|
+| `{{workflow:<name>}}` | `/<name>` (Claude Code) or `$<name>` (Codex) |
+| `{{shell:<cmd>}}` | `` !`<cmd>` `` (Claude Code) or `run \`<cmd>\`` (Codex) |
+| `{{arguments}}` | `$ARGUMENTS` (Claude Code) or prose (Codex) |
+| `{{methodology}}` | the running CLI's exact version |
+
+`{{methodology}}` exists because methodology prose must name a **pinned** CLI
+fallback for when `praxis` is not on PATH:
+`npx @pragmatic-labs/praxis@{{methodology}} check`. A floating `@latest` is not
+merely imprecise, it is incompatible with the pin — `methodology:` must equal
+the running CLI exactly (D59), so `@latest` fetches a CLI that `check` and
+`sync` refuse, breaking routine upkeep the moment a new release ships. A bare
+`npx @pragmatic-labs/praxis` is wrong for the older D40/D60 reason: it resolves
+through npx's cache and can reuse a stale build. Only emit time knows the right
+value, which is why no consumer repo could fix this locally.
+
+In a workspace hub this substitutes the *hub's* version; a member repo pins its
+own `methodology:` and may differ, so `/praxis-workspace-upkeep` instructs the
+agent to read each member's pin rather than reuse the hub's.
+
+`conformance/cli-invocation.conformance.test.ts` enforces all of it: no floating
+tag, no bare unpinned invocation, no unsubstituted placeholder, and the emitted
+rule names the package.
+
 First package: `instruction-upkeep`, whose `/praxis-instructions` command
 operationalizes the instruction-upkeep rule as a user-invocable workflow
 rather than prose the agent merely reads. Opt-in, like `safe-permissions`:

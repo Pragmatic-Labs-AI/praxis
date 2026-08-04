@@ -111,7 +111,7 @@ When reconciling the methodology layer after a change, enter through
 pass (e.g. first-run bootstrap).
 <!-- praxis:end wiki-memory -->
 
-<!-- praxis:begin upkeep sha256=ed4028e6a11140db934c3787e2d27bc56c35fed605e1c190f171de0a625cce36 (managed by praxis - edit praxis.yaml then run: praxis sync) -->
+<!-- praxis:begin upkeep sha256=92a1320980361934d87b5137e85ff0536bcd2a6042ccda699c8443cdf69c2643 (managed by praxis - edit praxis.yaml then run: praxis sync) -->
 ## Upkeep
 
 The methodology layer (instructions, wiki, emitted agent files) drifts
@@ -127,6 +127,10 @@ target-specific guidance; never make one surface import or replace the other.
 Run all three passes through the gate even when only one looks like it has
 work — skipping straight to a sub-skill is the piecemeal use this rule
 prevents.
+
+When `praxis` is not on PATH, the invocation is
+`npx @pragmatic-labs/praxis@0.3.0 check` — pinned to this repo's
+`methodology:`, never `@latest` or a bare `npx`.
 
 Praxis itself also goes stale. At the start of work, check whether a newer
 Praxis release exists; if one does, say so and offer `$praxis-upgrade`.
