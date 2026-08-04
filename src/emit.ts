@@ -477,6 +477,10 @@ export interface ApplyResult {
    *  `permissions.<bucket>` / `plugins.marketplaces` / `plugins.enable` for the
    *  JSON merge; never for owned. */
   conflicts: string[];
+  /** Per-group description of what would change, surfaced by `check` and
+   *  `sync --dry-run`. Only the JSON merge reports at this granularity today —
+   *  other deliveries fall back to a line-count summary in src/sync.ts. */
+  changes?: string[];
 }
 
 /** Apply one emit op against the destination file's existing text (pure; no I/O).

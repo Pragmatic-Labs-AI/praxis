@@ -13,6 +13,56 @@ Releases before 0.2.0 predate this file and are not recorded here; see the
 
 ## [Unreleased]
 
+### Added
+
+- `praxis sync --dry-run` (`-n`) — print exactly what sync would write, then
+  exit without writing. Previously there was no way to preview a rewrite.
+- `praxis sync --force` — overwrite destinations that carry uncommitted changes,
+  which sync now refuses to do by default (see below).
+- `praxis check` and `praxis sync --dry-run` now print **what** drifted beneath
+  each file instead of only that it did: per-rule deltas for
+  `.claude/settings.json` (`permissions.deny: +Read(./.env.local) -Read(./.env.*)`)
+  and a `+N/-M lines` summary elsewhere.
+
+### Fixed
+
+- **`sync` silently deleted rules you added to `.claude/settings.json`.** The
+  `_praxis.managed` block records what Praxis emitted, but it looks like the
+  place to configure — and if you added a rule to *both* the live `permissions`
+  block and that record, the next `sync` read your rule as a retired Praxis rule
+  and removed it from the live block, with no conflict reported. That is the
+  exact inverse of the "never clobbers rules you add" promise. The marker now
+  carries an integrity hash and an inline do-not-edit notice; a hand-edited
+  marker is reported as a `_praxis.managed` conflict and the file is left
+  untouched. Rules added to the live block alone were never affected and still
+  survive untouched.
+- **`sync` now refuses to overwrite a tracked file with uncommitted changes**,
+  naming the files and pointing at `--force`. An uncommitted edit has no
+  committed copy to recover from. The refusal happens before any write, so the
+  repository is left byte-identical.
+
+### Upgrading
+
+Run `praxis sync`. `.claude/settings.json` picks up a `_comment` and `hash`
+inside its `_praxis` key — a one-time rewrite that touches nothing you
+configured. `check` reports it as `_praxis.managed: ownership record updated`.
+
+Two things worth knowing:
+
+- **If you had hand-edited `_praxis.managed`, this upgrade is the moment to
+  undo it.** A file written by an older Praxis has no hash, so it is trusted
+  once — the integrity check protects you from the *next* sync onward. Move any
+  rules of your own out of `_praxis.managed` and into the `permissions` block
+  above it before syncing; rules there are preserved by design.
+- **The uncommitted-changes guard may stop a `sync` that used to succeed**, for
+  example in a script that edits an emitted file and re-syncs without
+  committing. Add `--force` to those call sites. The guard covers only tracked,
+  modified files: untracked files are not guarded (after `init` everything
+  emitted is untracked, and guarding it would refuse the normal init → sync
+  flow), and neither are gitignored ones — a repo that gitignores
+  `.claude/settings.json` gets no protection from this guard, though the
+  ownership-marker check above still applies.
+
 ## [0.3.0] - 2026-07-28
 
 Release communication becomes part of the methodology Praxis ships, rather

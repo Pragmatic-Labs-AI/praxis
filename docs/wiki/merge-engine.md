@@ -144,8 +144,32 @@ single write:
 - **Removal on update.** Rules Praxis previously emitted but no longer ships are
   dropped; user rules and unrelated keys (`model`, `env`, `defaultMode`, ...)
   are preserved. Invalid JSON is refused, never clobbered.
+- **The marker is tamper-evident.** `_praxis` carries a `hash` over its own
+  `managed` contents plus an inline `_comment` saying not to edit it. Removal-on-
+  update above *trusts* `managed` as "what Praxis last emitted", and that trust
+  is load-bearing: a rule listed there but no longer desired gets pruned from the
+  live block. So a rule a user hand-added to the marker was read as a retired
+  Praxis rule and **deleted from their live block, silently and with no
+  conflict** — the precise inverse of the promise in
+  `packages/layer1/safe-permissions/permissions.yaml`. The hash is what separates
+  "Praxis wrote this" from "a human edited this"; a mismatch returns the file
+  untouched with a `_praxis.managed` conflict. Same tamper-evidence the TOML
+  block and markdown blocks already had — the JSON marker was the one that
+  lacked it. A **missing** hash is legacy, not tampering: pre-integrity files are
+  trusted once and gain a hash on the next sync.
 - **Idempotent** by construction; verified by
   `conformance/merge-json.conformance.test.ts`.
+
+Two related protections live outside the merge itself. `sync` **refuses to
+overwrite a tracked file with uncommitted changes** unless `--force` is passed,
+because an uncommitted edit has no committed copy to recover from — the guard
+runs ahead of the commit boundary, so a refusal leaves every destination
+byte-identical (D61). It is deliberately narrow: untracked files are not guarded
+(after `init` every emitted file is untracked, and guarding them would refuse the
+ordinary init → sync flow) and neither are gitignored ones. And `check` /
+`sync --dry-run` print **what** would change under each drifted file — per-rule
+deltas for the JSON merge, a line count for everything else — rather than a bare
+`~ path (drift)`. See `conformance/sync-uncommitted.conformance.test.ts`.
 
 Codex uses two additional structured reconcilers. `.codex/config.toml` carries a
 hash-protected comment block and refuses colliding profile/legacy sandbox keys.
