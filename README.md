@@ -45,17 +45,19 @@ Pin it with an exact `devDependency`, a committed lockfile, and `npm ci`,
 invoked via a `package.json` script (or `node_modules/.bin`) — never a bare
 `npx` in CI:
 
+<!-- praxis:begin readme-pin-devdependency (generated — run: npm run docs:pins) -->
 ```jsonc
 // package.json
 {
   "devDependencies": {
-    "@pragmatic-labs/praxis": "0.2.0"    // exact version, no ^ / ~ range
+    "@pragmatic-labs/praxis": "0.3.0"    // exact version, no ^ / ~ range
   },
   "scripts": {
     "praxis:check": "praxis check"
   }
 }
 ```
+<!-- praxis:end readme-pin-devdependency -->
 
 ```yaml
 # .github/workflows/ci.yml (excerpt)
@@ -77,13 +79,15 @@ instead of cache/registry noise.
 Do not add npm project files just for Praxis. Pin the CLI in the command that
 CI runs instead:
 
+<!-- praxis:begin readme-pin-npm-exec (generated — run: npm run docs:pins) -->
 ```yaml
 # .github/workflows/ci.yml (excerpt)
 - run: >-
     npm exec --yes
-    --package=@pragmatic-labs/praxis@0.2.0
+    --package=@pragmatic-labs/praxis@0.3.0
     -- praxis check
 ```
+<!-- praxis:end readme-pin-npm-exec -->
 
 The package version must be exact and match `praxis.yaml`'s `methodology:`
 value; do not substitute `latest`, a range, or bare `npx` in CI. `npm exec`
@@ -91,10 +95,12 @@ uses npm's cache to run that pinned CLI without installing it into the target
 repository. For interactive developer use, an exact global install is also
 optional:
 
+<!-- praxis:begin readme-pin-global (generated — run: npm run docs:pins) -->
 ```bash
-npm install --global @pragmatic-labs/praxis@0.2.0
+npm install --global @pragmatic-labs/praxis@0.3.0
 praxis check
 ```
+<!-- praxis:end readme-pin-global -->
 
 ## Why it's different
 

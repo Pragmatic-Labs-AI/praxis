@@ -45,6 +45,17 @@ Two more workflows run alongside `ci.yml`:
 - **`.github/workflows/release.yml`** — the release/publish path (below), not a
   per-PR gate; it triggers only on a `v*` tag.
 
+## Bumping the version
+
+Run `npm version <level>` (`patch`/`minor`/`major`) — not a hand-edit of
+`package.json`'s `version` field. npm bumps the version, then runs the
+`version` lifecycle script (`npm run docs:pins`, regenerating README.md's
+three generated pins from the new version and staging the file), then commits
+and tags. A hand-edit still works — `npm run conformance`'s
+`readme-pins.conformance.test.ts` gate catches a pin left behind either way —
+but it skips the lifecycle hook, so the pins would need `npm run docs:pins`
+run by hand before committing.
+
 ## Release / publish (D32 → D57)
 
 Praxis is published to **public npm** as the scoped package

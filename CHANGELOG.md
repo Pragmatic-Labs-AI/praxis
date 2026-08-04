@@ -23,6 +23,13 @@ Releases before 0.2.0 predate this file and are not recorded here; see the
   each file instead of only that it did: per-rule deltas for
   `.claude/settings.json` (`permissions.deny: +Read(./.env.local) -Read(./.env.*)`)
   and a `+N/-M lines` summary elsewhere.
+- `npm run docs:pins` — regenerates README.md's three copy-pasteable version
+  pins (devDependency, npm-exec, global install) from the running CLI's own
+  version, plus a matching `conformance` gate that fails the moment a pin
+  drifts from it. Wired into npm's `version` lifecycle script, so `npm version
+  <level>` bumps `package.json` and refreshes the pins in the same commit —
+  this is also the first place this project documents that a release version
+  bump is done with `npm version`.
 
 ### Changed
 
